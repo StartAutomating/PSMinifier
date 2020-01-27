@@ -1,4 +1,4 @@
-﻿
+
 stages: 
   - stage: PowerShellStaticAnalysis
     displayName: Static Analysis
