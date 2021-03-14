@@ -177,8 +177,8 @@ jobs:
     steps: 
       - name: Check out repository
         uses: actions/checkout@v2
-      - name: Use Benchpress Action
-        uses: StartAutomating/Benchpress@master
+      - name: Use PSMinifier Action
+        uses: StartAutomating/PSMinifier@GitHubAction
       - name: PublishMinifications
         uses: actions/upload-artifact@v2
         with: 
