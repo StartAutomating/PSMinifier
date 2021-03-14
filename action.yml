@@ -1,0 +1,121 @@
+﻿
+name: PowerShell Minifier
+description: A Miniature Minifier For PowerShell
+inputs: 
+  Include: 
+    required: false
+    description: |
+      One or more wildcards of files to include.  
+      If not provided, all .ps1 in a workspace will be included.
+  Exclude: 
+    required: false
+    description: One or more wildcards of files to exclude.
+  GZip: 
+    required: false
+    description: If set, the minified content will be encoded as GZip, further reducing it's size.
+  NoBlock: 
+    required: false
+    description: |
+      If set, zipped minified content will be encoded without blocks, making it a very long single line.
+      This parameter is only valid with -GZip.
+branding: 
+  icon: minimize
+  color: blue
+runs: 
+  using: composite
+  steps: 
+    - name: PSMinifier
+      shell: pwsh
+      env: 
+        Include: ${{github.events.inputs.Include}}
+        NoBlock: ${{github.events.inputs.NoBlock}}
+        GZip: ${{github.events.inputs.GZip}}
+        Exclude: ${{github.events.inputs.Exclude}}
+      run: |
+        $Parameters = @{}
+        $Parameters.Include = ${env:Include}
+        $Parameters.Include = $parameters.Include -split ';'
+        $Parameters.Exclude = ${env:Exclude}
+        $Parameters.Exclude = $parameters.Exclude -split ';'
+        $Parameters.GZip = ${env:GZip}
+        $Parameters.GZip = $parameters.GZip -match 'true';
+        $Parameters.NoBlock = ${env:NoBlock}
+        $Parameters.NoBlock = $parameters.NoBlock -match 'true';
+        foreach ($k in @($parameters.Keys)) {
+            if ([String]::IsNullOrEmpty($parameters[$k])) {
+                $parameters.Remove($k)
+            }
+        }
+        Write-Host "::debug:: PSMinifier $(@(foreach ($p in $Parameters.GetEnumerator()) {'-' + $p.Key + ' ' + $p.Value}) -join ' ')"
+        & {<#
+        .Synopsis
+            PSMinifier Action
+        .Description
+            Runs PSMinifier on code in the workspace, and creates .min.ps1 files.
+        #>
+        param(
+        # One or more wildcards of files to include.  
+        # If not provided, all .ps1 in a workspace will be included.
+        [string[]]
+        $Include,
+        
+        # One or more wildcards of files to exclude.
+        [string[]]
+        $Exclude,
+        
+        # If set, the minified content will be encoded as GZip, further reducing it's size.
+        [switch]
+        $GZip,
+        
+        # If set, zipped minified content will be encoded without blocks, making it a very long single line.
+        # This parameter is only valid with -GZip.
+        [switch]
+        $NoBlock
+        )
+        
+        if ($env:GITHUB_ACTION_PATH) {
+            $psMinifierPath = Join-Path $env:GITHUB_ACTION_PATH 'PSMinifier.psd1'
+            if (Test-path $psMinifierPath) {
+                Import-Module $psMinifierPath -Force -PassThru | Out-String
+            } else {
+                throw "PSMinifier not found"
+            }
+        } elseif (-not (Get-Module PSMinifier)) {
+            Get-ChildItem env: | Out-String
+            throw "Action Path not found"
+        }
+        
+        "::debug::PSMinifier Loaded from Path - $($psMinifierPath)" | Out-Host
+        
+        if (-not $env:GITHUB_WORKSPACE) { throw "No GitHub workspace" }
+        $compressSplat = @{} + $PSBoundParameters
+        $compressSplat.Remove('Include')
+        $compressSplat.Remove('Exclude')
+        
+        $commandsToMinify = 
+            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 -Exclude $Exclude |
+                Where-Object {
+                    if ($_.Name -like '*.min.*ps1') { return } # Don't overminify
+                    if ($Include) {
+                        foreach ($inc in $Include) {
+                            if ($_.Name -like $inc) { return $true }
+                        }
+                    } else { return $true }
+                } |
+                Get-Command { $_.FullName }
+            
+        foreach ($command in $commandsToMinify) {
+            $command | 
+                Compress-ScriptBlock @compressSplat -OutputPath {
+                    if ($GZip) {
+                        $_.Source -replace '\.ps1$', '.min.gzip.ps1'
+                    } else {
+                        $_.Source -replace '\.ps1$', '.min.ps1'
+                    }
+                } -PassThru 
+        }
+            
+        return
+        
+        } @Parameters
+
