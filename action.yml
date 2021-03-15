@@ -170,9 +170,11 @@ runs:
                 }
         
             if ($filesUpdated) {
+                $ErrorActionPreference = 'continue'
                 $gitPushed =  git push 2>&1
                 "Git Push Output: $($gitPushed  | Out-String)"
                 $LASTEXITCODE = 0
+                exit 0        
             } else {
                 "Nothing to Push" | Out-Host
             }
