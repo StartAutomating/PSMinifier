@@ -144,15 +144,16 @@ runs:
         $commandsToMinify =
             Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 |
                 Where-Object {
-                    if ($_.Name -like '*.min.*ps1') { return } # Don't overminify
+                    $fileInfo = $_ 
+                    if ($fileInfo.Name -like '*.min.*ps1') { return } # Don't overminify
                     if ($Exclude) {
                         foreach ($ex in $Exclude) {
-                            if ($_.Name -like $ex) { return $false }
+                            if ($fileInfo.Name -like $ex) { return $false }
                         }
                     }
                     if ($Include) {
                         foreach ($inc in $Include) {
-                            if ($_.Name -like $inc) { return $true }
+                            if ($fileInfo.Name -like $inc) { return $true }
                         }
                     } else { return $true }
                 } |
