@@ -132,12 +132,12 @@ runs:
         
         if ($CommitMessage -and $minifiedCommands) {
             $minifiedCommands | ForEach-Object { git add $_.Fullname }
+            git config --global user.email 'info@start-automating.com'
+            git config --global user.name  'StartAutomating/PSMinifier'
             git commit -m $CommitMessage
             $gitPushed =  git push 2>&1
         }
-        
-        
-            
+           
         return
         
         } @Parameters
