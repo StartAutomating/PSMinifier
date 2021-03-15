@@ -129,9 +129,14 @@ runs:
         if ($GZip) { $compressSplat.DotSource = $true }
         
         $commandsToMinify =
-            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 -Exclude $Exclude |
+            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 |
                 Where-Object {
                     if ($_.Name -like '*.min.*ps1') { return } # Don't overminify
+                    if ($Exclude) {
+                        foreach ($ex in $Exclude) {
+                            if ($_.Name -like $ex) { return $false }
+                        }
+                    }
                     if ($Include) {
                         foreach ($inc in $Include) {
                             if ($_.Name -like $inc) { return $true }
@@ -160,8 +165,8 @@ runs:
             $filesUpdated = 0
             $minifiedCommands |
                 ForEach-Object {
-                    $diffOut = git diff $_.Fullname
-                    if ($diffOut) {
+                    $gitStatusOutput = git status $_.Fullname -s
+                    if ($gitStatusOutput) {
                         git add $_.Fullname
                         git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
                         $filesUpdated++
