@@ -8,18 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
       - name: InstallScriptCop
+        id: InstallScriptCop
         shell: pwsh
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           Install-Module -Name ScriptCop -Repository PSGallery -Force -Scope CurrentUser
           Import-Module ScriptCop -Force -PassThru
       - name: InstallPSScriptAnalyzer
+        id: InstallPSScriptAnalyzer
         shell: pwsh
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           Install-Module -Name PSScriptAnalyzer -Repository PSGallery -Force -Scope CurrentUser
           Import-Module PSScriptAnalyzer -Force -PassThru
       - name: InstallPSDevOps
+        id: InstallPSDevOps
         shell: pwsh
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -28,6 +31,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
       - name: RunScriptCop
+        id: RunScriptCop
         shell: pwsh
         run: |
           $Parameters = @{}
@@ -64,6 +68,7 @@ jobs:
           }
           } @Parameters
       - name: RunPSScriptAnalyzer
+        id: RunPSScriptAnalyzer
         shell: pwsh
         run: |
           Import-Module PSScriptAnalyzer, PSDevOps -PassThru | Out-Host
@@ -85,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
       - name: InstallPester
+        id: InstallPester
         shell: pwsh
         run: |
           $Parameters = @{}
@@ -112,6 +118,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
       - name: RunPester
+        id: RunPester
         shell: pwsh
         run: |
           $Parameters = @{}
@@ -184,7 +191,9 @@ jobs:
           CommitMessage: Minifying $($_.Name)
       - name: OutputMinifier
         run: |
-          echo Original Size ${{ steps.Minify.outputs.OriginalSize }} Minified Size ${{ steps.Minify.outputs.MinifiedSize }} Minified Percent ${{ steps.Minify.outputs.MinifiedPercent }}
+          echo Original Size ${{ steps.Minify.outputs.OriginalSize }} 
+          echo Minified Size ${{ steps.Minify.outputs.MinifiedSize }} 
+          echo Minified Percent ${{ steps.Minify.outputs.MinifiedPercent }}
           
         shell: bash
       - name: Minify and GZip PSMinifier
