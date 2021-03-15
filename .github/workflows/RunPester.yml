@@ -204,7 +204,9 @@ jobs:
           CommitMessage: Minifying and GZipping $($_.Name)
       - name: OutputMinifierGZip
         run: |
-          echo Original Size ${{ steps.MinifyGZip.outputs.OriginalSize }} Minified Size ${{ steps.MinifyGZip.outputs.MinifiedSize }} Minified Percent ${{ steps.MinifyGZip.outputs.MinifiedPercent }}
+          echo Original Size ${{ steps.MinifyGZip.outputs.OriginalSize }} 
+          echo Minified Size ${{ steps.MinifyGZip.outputs.MinifiedSize }} 
+          echo Minified Percent ${{ steps.MinifyGZip.outputs.MinifiedPercent }}
           
         shell: bash
       - name: PublishMinifications
