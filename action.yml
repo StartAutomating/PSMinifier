@@ -33,6 +33,17 @@ inputs:
 branding: 
   icon: minimize
   color: blue
+outputs: 
+  
+    OriginalSize: 
+      description: The Original Size of all files
+      value: ${{steps.PSMinifier.outputs.OriginalSize}}
+    MinifiedSize: 
+      description: The Total Size of all minified files
+      value: ${{steps.PSMinifier.outputs.MinifiedSize}}
+    MinifiedPercent: 
+      description: The Percentage Saved by minifying
+      value: ${{steps.PSMinifier.outputs.MinifiedPercent}}
 runs: 
   using: composite
   steps: 
@@ -221,13 +232,4 @@ runs:
         }
         
         } @Parameters
-outputs: 
-  OriginalSize: 
-    description: The Original Size of all files
-    value: ${{steps.PSMinifier.outputs.OriginalSize}}
-  MinifiedSize: 
-    description: The Total Size of all minified files
-    value: ${{steps.PSMinifier.outputs.MinifiedSize}}
-  MinifiedPercent: 
-    description: The Percentage Saved by minifying
-    value: ${{steps.PSMinifier.outputs.MinifiedPercent}}
+
