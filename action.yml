@@ -150,9 +150,7 @@ runs:
             if ($filesUpdated) {
                 $gitPushed =  git push 2>&1
                 "Git Push Output: $($gitPushed  | Out-String)"
-                if ($gitPushed -and $gitPushed -like "*$fileUpdated*") {
-                    $LASTEXITCODE = 0
-                }
+                $LASTEXITCODE = 0
             } else {
                 "Nothing to Push" | Out-Host
             }
