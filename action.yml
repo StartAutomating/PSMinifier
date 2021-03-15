@@ -27,10 +27,10 @@ runs:
     - name: PSMinifier
       shell: pwsh
       env: 
-        Include: ${{github.events.inputs.Include}}
-        NoBlock: ${{github.events.inputs.NoBlock}}
-        GZip: ${{github.events.inputs.GZip}}
-        Exclude: ${{github.events.inputs.Exclude}}
+        Include: ${{inputs.Include}}
+        NoBlock: ${{inputs.NoBlock}}
+        GZip: ${{inputs.GZip}}
+        Exclude: ${{inputs.Exclude}}
       run: |
         $Parameters = @{}
         $Parameters.Include = ${env:Include}
@@ -112,7 +112,7 @@ runs:
                     } else {
                         $_.Source -replace '\.ps1$', '.min.ps1'
                     }
-                } -PassThru 
+                } -PassThru | Out-Host
         }
             
         return
