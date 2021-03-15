@@ -24,7 +24,7 @@ function Compress-ScriptBlock
             Split-Path | # root path
             Join-Path -ChildPath Compress-ScriptBlock.ps1 | # join it with Compress-ScriptBlock.ps1
             Get-Command | # get the command
-            Compress-ScriptBlock -Anonymous -GZip -DotSource | # Compress it, anonymized, and dot-sourced
+            Compress-ScriptBlock -GZip -DotSource | # Compress it, anonymized, and dot-sourced
             Set-Content -Path ( # And put it back into
                 Get-Module PSMinifier |
                     Split-Path |
@@ -35,7 +35,7 @@ function Compress-ScriptBlock
             Split-Path | # root path
             Join-Path -ChildPath Compress-ScriptBlock.ps1 | # join it with Compress-ScriptBlock.ps1
             Get-Command | # get the command
-            Compress-ScriptBlock -Anonymous | # Compress it, anonymized
+            Compress-ScriptBlock | # Compress it, anonymized
             Set-Content -Path ( # And put it back into
                 Get-Module PSMinifier |
                     Split-Path |
@@ -274,7 +274,7 @@ function Compress-ScriptBlock
             }
         }
 
-                $CompressPipeline = { # If we're compressing a pipeline
+        $CompressPipeline = { # If we're compressing a pipeline
             param(
             [Parameter(ValueFromPipeline=$true)]
             [Management.Automation.Language.CommandBaseAst]$p)
@@ -439,7 +439,7 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
             $unresolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
             [IO.File]::WriteAllText("$unresolvedOutputPath", $minified) # and then write content to disk.
             if ($PassThru) {
-                Get-Item -LiteralPath "$unresolvedOutputPath" -ErrorAction SilentlyContinue
+                Get-Item -LiteralPath "$unresolvedOutputPath"
             }
         } else {
             $minified # Otherwise, output the minified content.
