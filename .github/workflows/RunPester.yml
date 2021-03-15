@@ -181,11 +181,13 @@ jobs:
         uses: StartAutomating/PSMinifier@GitHubAction
         with: 
           Exclude: '*.tests.ps1;*.psdevops.ps1'
-          CommitMessage: Updating .min.ps1
+          CommitMessage: Minifying $($_.Name).ps1
       - name: Use PSMinifier Action
         uses: StartAutomating/PSMinifier@GitHubAction
         with: 
           GZip: true
+          Exclude: '*.tests.ps1;*.psdevops.ps1'
+          CommitMessage: Minifying and GZipping $($_.Name).ps1
       - name: PublishMinifications
         uses: actions/upload-artifact@v2
         with: 
