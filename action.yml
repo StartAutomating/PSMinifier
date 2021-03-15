@@ -123,6 +123,8 @@ runs:
         $compressSplat.Remove('Include')
         $compressSplat.Remove('Exclude')
         $compressSplat.Remove('CommitMessage')
+        $compressSplat.Remove('UserEmail')
+        $compressSplat.Remove('UserName')
         if ($GZip) { $compressSplat.DotSource = $true }
         
         $commandsToMinify =
