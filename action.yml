@@ -143,6 +143,7 @@ runs:
             
             
             $gitPushed =  git push 2>&1
+            $gitPushed | Out-String
         }
         
         } @Parameters
