@@ -1,3 +1,8 @@
+trigger: 
+  paths: 
+    exclude: 
+      - "*.md"
+      - "*.txt"
 
 stages: 
   - stage: PowerShellStaticAnalysis
@@ -194,9 +199,4 @@ stages:
               reportDirectory: $(System.DefaultWorkingDirectory)
 
     condition: succeeded()
-trigger: 
-  paths: 
-    exclude: 
-      - "*.md"
-      - "*.txt"
 
