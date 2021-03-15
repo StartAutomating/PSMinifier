@@ -5,7 +5,7 @@ inputs:
   Include: 
     required: false
     description: |
-      One or more wildcards of files to include.  
+      One or more wildcards of files to include.
       If not provided, all .ps1 in a workspace will be included.
   Exclude: 
     required: false
@@ -21,6 +21,14 @@ inputs:
   CommitMessage: 
     required: false
     description: If provided, will commit changes made to the workspace with this commit message.
+  UserEmail: 
+    required: false
+    default: "info@start-automating.com"
+    description: The user email associated with a git commit.
+  UserName: 
+    required: false
+    default: "StartAutomating/PSMinifier"
+    description: The user name associated with a git commit.
 branding: 
   icon: minimize
   color: blue
@@ -30,11 +38,13 @@ runs:
     - name: PSMinifier
       shell: pwsh
       env: 
-        Include: ${{inputs.Include}}
-        CommitMessage: ${{inputs.CommitMessage}}
+        UserName: ${{inputs.UserName}}
         NoBlock: ${{inputs.NoBlock}}
-        GZip: ${{inputs.GZip}}
+        UserEmail: ${{inputs.UserEmail}}
+        CommitMessage: ${{inputs.CommitMessage}}
         Exclude: ${{inputs.Exclude}}
+        GZip: ${{inputs.GZip}}
+        Include: ${{inputs.Include}}
       run: |
         $Parameters = @{}
         $Parameters.Include = ${env:Include}
@@ -46,6 +56,8 @@ runs:
         $Parameters.NoBlock = ${env:NoBlock}
         $Parameters.NoBlock = $parameters.NoBlock -match 'true';
         $Parameters.CommitMessage = ${env:CommitMessage}
+        $Parameters.UserEmail = ${env:UserEmail}
+        $Parameters.UserName = ${env:UserName}
         foreach ($k in @($parameters.Keys)) {
             if ([String]::IsNullOrEmpty($parameters[$k])) {
                 $parameters.Remove($k)
@@ -59,7 +71,7 @@ runs:
             Runs PSMinifier on code in the workspace, and creates .min.ps1 files.
         #>
         param(
-        # One or more wildcards of files to include.  
+        # One or more wildcards of files to include.
         # If not provided, all .ps1 in a workspace will be included.
         [string[]]
         $Include,
@@ -79,7 +91,15 @@ runs:
         
         # If provided, will commit changes made to the workspace with this commit message.
         [string]
-        $CommitMessage
+        $CommitMessage,
+        
+        # The user email associated with a git commit.
+        [string]
+        $UserEmail = "info@start-automating.com",
+        
+        # The user name associated with a git commit.
+        [string]
+        $UserName = "StartAutomating/PSMinifier"
         )
         
         
@@ -105,7 +125,7 @@ runs:
         $compressSplat.Remove('CommitMessage')
         if ($GZip) { $compressSplat.DotSource = $true }
         
-        $commandsToMinify = 
+        $commandsToMinify =
             Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 -Exclude $Exclude |
                 Where-Object {
                     if ($_.Name -like '*.min.*ps1') { return } # Don't overminify
@@ -116,10 +136,10 @@ runs:
                     } else { return $true }
                 } |
                 Get-Command { $_.FullName }
-            
         
-        $minifiedCommands = 
-            $commandsToMinify | 
+        
+        $minifiedCommands =
+            $commandsToMinify |
                 Compress-ScriptBlock @compressSplat -OutputPath {
                     if ($GZip) {
                         $_.Source -replace '\.ps1$', '.min.gzip.ps1'
@@ -131,22 +151,22 @@ runs:
         $minifiedCommands | Out-Host
         
         if ($CommitMessage -and $minifiedCommands) {
-            git config --global user.email 'info@start-automating.com'
-            git config --global user.name  'StartAutomating/PSMinifier'
-            
+            git config --global user.email $UserEmail
+            git config --global user.name  $UserName
+        
             $filesUpdated = 0
-            $minifiedCommands | 
+            $minifiedCommands |
                 ForEach-Object {
-                    $diffOut = git diff $_.Fullname 
+                    $diffOut = git diff $_.Fullname
                     if ($diffOut) {
-                        git add $_.Fullname 
+                        git add $_.Fullname
                         git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
                         $filesUpdated++
                     } else {
                         "No need to Commit $($_.FullName)" | Out-Host
                     }
                 }
-            
+        
             if ($filesUpdated) {
                 $gitPushed =  git push 2>&1
                 "Git Push Output: $($gitPushed  | Out-String)"
