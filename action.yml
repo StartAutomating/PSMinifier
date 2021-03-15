@@ -9,7 +9,7 @@ inputs:
       If not provided, all .ps1 in a workspace will be included.
   Exclude: 
     required: false
-    default: '''*.*.ps1'''
+    default: '"*.*.ps1"'
     description: One or more wildcards of files to exclude.
   GZip: 
     required: false
@@ -79,7 +79,7 @@ runs:
         
         # One or more wildcards of files to exclude.
         [string[]]
-        $Exclude = '*.*.ps1',
+        $Exclude = "*.*.ps1",
         
         # If set, the minified content will be encoded as GZip, further reducing it's size.
         [switch]
