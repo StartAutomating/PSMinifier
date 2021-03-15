@@ -49,9 +49,9 @@ runs:
       run: |
         $Parameters = @{}
         $Parameters.Include = ${env:Include}
-        $Parameters.Include = $parameters.Include -split ';'
+        $Parameters.Include = $parameters.Include -split ';' -replace '^[''"]' -replace  '[''"]$'
         $Parameters.Exclude = ${env:Exclude}
-        $Parameters.Exclude = $parameters.Exclude -split ';'
+        $Parameters.Exclude = $parameters.Exclude -split ';' -replace '^[''"]' -replace  '[''"]$'
         $Parameters.GZip = ${env:GZip}
         $Parameters.GZip = $parameters.GZip -match 'true';
         $Parameters.NoBlock = ${env:NoBlock}
