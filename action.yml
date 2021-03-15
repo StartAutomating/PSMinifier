@@ -134,22 +134,27 @@ runs:
             git config --global user.email 'info@start-automating.com'
             git config --global user.name  'StartAutomating/PSMinifier'
             
-            
+            $filesUpdated = 0
             $minifiedCommands | 
                 ForEach-Object {
                     $diffOut = git diff $_.Fullname 
                     if ($diffOut) {
                         git add $_.Fullname 
                         git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
+                        $filesUpdated++
                     } else {
                         "No need to Commit $($_.FullName)" | Out-Host
                     }
                 }
             
-            
-            $gitPushed =  git push 2>&1
-            if ($gitPushed) {
-                "Git Push Output: $($gitPushed  | Out-String)"    
+            if ($filesUpdated) {
+                $gitPushed =  git push 2>&1
+                "Git Push Output: $($gitPushed  | Out-String)"
+                if ($gitPushed -and $gitPushed -like "*$fileUpdated*") {
+                    $LASTEXITCODE = 0
+                }
+            } else {
+                "Nothing to Push" | Out-Host
             }
         }
         
