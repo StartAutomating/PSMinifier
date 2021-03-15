@@ -1,5 +1,5 @@
 ﻿
-name: StaticAnalysisAndTests
+name: TestAndTryAction
 on: 
 - workflow_dispatch
 - push
