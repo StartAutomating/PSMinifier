@@ -104,18 +104,7 @@ runs:
         )
         
         "::group::Parameters" | Out-Host
-        "Bound Parameters" | Out-Host
-        [PSCustomObject]$PSBoundParameters | Out-Host
-        "Default Parameters" | Out-Host
-        [PSCustomObject][Ordered]@{
-            Include = $Include
-            Exclude = $Exclude
-            GZip = $GZip
-            NoBlock = $NoBlock
-            CommitMessage = $CommitMessage
-            UserEmail = $UserEmail
-            UserName = $UserName
-        } | Out-Host
+        [PSCustomObject]$PSBoundParameters | Format-List | Out-Host
         "::endgroup::" | Out-Host
         
         if ($env:GITHUB_ACTION_PATH) {
@@ -144,7 +133,7 @@ runs:
         "EXCLUDING $Exclude" | Out-Host
         
         $commandsToMinify =
-            Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 |
+            @(Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 |
                 Where-Object {
                     $fileInfo = $_ 
                     if ($fileInfo.Name -like '*.min.*ps1') { return } # Don't overminify
@@ -165,20 +154,42 @@ runs:
                         return $true
                     }
                 } |
-                Get-Command { $_.FullName }
+                Get-Command { $_.FullName })
         
         
         $minifiedCommands =
-            $commandsToMinify |
+            @($commandsToMinify |
                 Compress-ScriptBlock @compressSplat -OutputPath {
                     if ($GZip) {
                         $_.Source -replace '\.ps1$', '.min.gzip.ps1'
                     } else {
                         $_.Source -replace '\.ps1$', '.min.ps1'
                     }
-                } -PassThru
-        
+                } -PassThru)
+        "::group::Minified Commands" | Out-Host
         $minifiedCommands | Out-Host
+        "::endgroup::" | Out-Host
+        
+        "::group::Summary" | Out-Host
+        $totalOriginal = 0 
+        $totalMinified = 0 
+        for ($n =0 ; $n -lt $commandsToMinify.Length; $n++) {
+            $safeName = $commandsToMinify[$n].Name -replace '\W'
+            $originalSize = ([IO.FileInfo]$($commandsToMinify[$n].Source)).Length
+            $totalOriginal+=$originalSize
+            $minifiedSize = $minifiedCommands[$n].Length
+            $totalMinified = $minifiedSize
+            $minifiedPercent = $minifiedCommands[$n].Length / $originalSize
+            "$($commandsToMinify[$n].name) -> $($minifiedCommands[$n].Name) - $([Math]::Round($minifiedPercent * 100, 2))%" | Out-Host
+            "::set-output name=$($safeName)_MinifiedSize::$minifiedSize"       | Out-Host
+            "::set-output name=$($safeName)_MinifiedPercent::$minifiedPercent" | Out-Host
+        }
+        "Total Original Size: $([Math]::Round(($totalOriginal /1kb),2))kb"     | Out-Host
+        "::set-output name=MinifiedSize::$minifiedSize"                        | Out-Host
+        "::set-output name=MinifiedPercent::$($minifiedSize / $originalSize)"  | Out-Host
+        "Total Minified Size: $([Math]::Round(($totalMinified /1kb),2))kb"     | Out-Host
+        
+        "::endgroup::" | Out-Host
         
         if ($CommitMessage -and $minifiedCommands) {
             git config --global user.email $UserEmail
