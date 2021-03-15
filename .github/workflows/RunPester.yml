@@ -180,7 +180,7 @@ jobs:
       - name: Use PSMinifier Action
         uses: StartAutomating/PSMinifier@GitHubAction
         with: 
-          exclude: 
+          Exclude: 
           - '*.tests.ps1'
           - '*.psdevops.ps1'
           CommitMessage: Updating .min.ps1
