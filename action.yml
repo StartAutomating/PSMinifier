@@ -18,6 +18,9 @@ inputs:
     description: |
       If set, zipped minified content will be encoded without blocks, making it a very long single line.
       This parameter is only valid with -GZip.
+  CommitMessage: 
+    required: false
+    description: If provided, will commit changes made to the workspace with this commit message.
 branding: 
   icon: minimize
   color: blue
@@ -28,6 +31,7 @@ runs:
       shell: pwsh
       env: 
         Include: ${{inputs.Include}}
+        CommitMessage: ${{inputs.CommitMessage}}
         NoBlock: ${{inputs.NoBlock}}
         GZip: ${{inputs.GZip}}
         Exclude: ${{inputs.Exclude}}
@@ -41,6 +45,7 @@ runs:
         $Parameters.GZip = $parameters.GZip -match 'true';
         $Parameters.NoBlock = ${env:NoBlock}
         $Parameters.NoBlock = $parameters.NoBlock -match 'true';
+        $Parameters.CommitMessage = ${env:CommitMessage}
         foreach ($k in @($parameters.Keys)) {
             if ([String]::IsNullOrEmpty($parameters[$k])) {
                 $parameters.Remove($k)
@@ -70,8 +75,14 @@ runs:
         # If set, zipped minified content will be encoded without blocks, making it a very long single line.
         # This parameter is only valid with -GZip.
         [switch]
-        $NoBlock
+        $NoBlock,
+        
+        # If provided, will commit changes made to the workspace with this commit message.
+        [string]
+        $CommitMessage
         )
+        
+        
         
         if ($env:GITHUB_ACTION_PATH) {
             $psMinifierPath = Join-Path $env:GITHUB_ACTION_PATH 'PSMinifier.psd1'
@@ -91,6 +102,8 @@ runs:
         $compressSplat = @{} + $PSBoundParameters
         $compressSplat.Remove('Include')
         $compressSplat.Remove('Exclude')
+        $compressSplat.Remove('CommitMessage')
+        if ($GZip) { $compressSplat.DotSource = $true }
         
         $commandsToMinify = 
             Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 -Exclude $Exclude |
@@ -104,16 +117,26 @@ runs:
                 } |
                 Get-Command { $_.FullName }
             
-        foreach ($command in $commandsToMinify) {
-            $command | 
+        
+        $minifiedCommands = 
+            $commandsToMinify | 
                 Compress-ScriptBlock @compressSplat -OutputPath {
                     if ($GZip) {
                         $_.Source -replace '\.ps1$', '.min.gzip.ps1'
                     } else {
                         $_.Source -replace '\.ps1$', '.min.ps1'
                     }
-                } -PassThru | Out-Host
+                } -PassThru
+        
+        $minifiedCommands | Out-Host
+        
+        if ($CommitMessage -and $minifiedCommands) {
+            $minifiedCommands | ForEach-Object { git add $_.Fullname }
+            git commit -m $CommitMessage
+            $gitPushed =  git push 2>&1
         }
+        
+        
             
         return
         
