@@ -103,7 +103,20 @@ runs:
         $UserName = "StartAutomating/PSMinifier"
         )
         
-        
+        "::group::Parameters" | Out-Host
+        "Bound Parameters" | Out-Host
+        [PSCustomObject]$PSBoundParameters | Out-Host
+        "Default Parameters" | Out-Host
+        [PSCustomObject][Ordered]@{
+            Include = $Include
+            Exclude = $Exclude
+            GZip = $GZip
+            NoBlock = $NoBlock
+            CommitMessage = $CommitMessage
+            UserEmail = $UserEmail
+            UserName = $UserName
+        } | Out-Host
+        "::endgroup::" | Out-Host
         
         if ($env:GITHUB_ACTION_PATH) {
             $psMinifierPath = Join-Path $env:GITHUB_ACTION_PATH 'PSMinifier.psd1'
