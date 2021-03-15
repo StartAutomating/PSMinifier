@@ -185,8 +185,9 @@ runs:
             "::set-output name=$($safeName)_MinifiedPercent::$minifiedPercent" | Out-Host
         }
         "Total Original Size: $([Math]::Round(($totalOriginal /1kb),2))kb"     | Out-Host
-        "::set-output name=MinifiedSize::$minifiedSize"                        | Out-Host
-        "::set-output name=MinifiedPercent::$($minifiedSize / $originalSize)"  | Out-Host
+        "::set-output name=OriginalSize::$totalOriginal"                       | Out-Host
+        "::set-output name=MinifiedSize::$totalMinified"                       | Out-Host
+        "::set-output name=MinifiedPercent::$($totalOriginal / $totalMinified)"| Out-Host
         "Total Minified Size: $([Math]::Round(($totalMinified /1kb),2))kb"     | Out-Host
         
         "::endgroup::" | Out-Host
@@ -220,4 +221,13 @@ runs:
         }
         
         } @Parameters
-
+outputs: 
+  OriginalSize: 
+    description: The Original Size of all files
+    value: ${{steps.PSMinifier.outputs.OriginalSize}}
+  MinifiedSize: 
+    description: The Total Size of all minified files
+    value: ${{steps.PSMinifier.outputs.MinifiedSize}}
+  MinifiedPercent: 
+    description: The Percentage Saved by minifying
+    value: ${{steps.PSMinifier.outputs.MinifiedPercent}}
