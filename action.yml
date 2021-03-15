@@ -136,14 +136,21 @@ runs:
             
             
             $minifiedCommands | 
-                ForEach-Object { 
-                    git add $_.Fullname 
-                    git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
+                ForEach-Object {
+                    $diffOut = git diff $_.Fullname 
+                    if ($diffOut) {
+                        git add $_.Fullname 
+                        git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
+                    } else {
+                        "No need to Commit $($_.FullName)" | Out-Host
+                    }
                 }
             
             
             $gitPushed =  git push 2>&1
-            $gitPushed | Out-String
+            if ($gitPushed) {
+                "Git Push Output: $($gitPushed  | Out-String)"    
+            }
         }
         
         } @Parameters
