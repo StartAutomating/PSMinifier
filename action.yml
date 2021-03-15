@@ -47,7 +47,8 @@ outputs:
 runs: 
   using: composite
   steps: 
-    - name: PSMinifier      
+    - name: PSMinifier
+      id: PSMinifier
       shell: pwsh
       env: 
         UserName: ${{inputs.UserName}}
