@@ -1,4 +1,3 @@
-﻿
 trigger: 
   batch: true
   paths: 
@@ -498,4 +497,5 @@ stages:
             name: PublishPowerShellGallery
             displayName: PublishPowerShellGallery
 
+    condition: succeeded()
 
