@@ -141,21 +141,29 @@ runs:
         $compressSplat.Remove('UserName')
         if ($GZip) { $compressSplat.DotSource = $true }
         
+        "EXCLUDING $Exclude" | Out-Host
+        
         $commandsToMinify =
             Get-ChildItem -LiteralPath $env:GITHUB_WORKSPACE -Filter *.ps1 |
                 Where-Object {
                     $fileInfo = $_ 
                     if ($fileInfo.Name -like '*.min.*ps1') { return } # Don't overminify
-                    if ($Exclude) {
-                        foreach ($ex in $Exclude) {
-                            if ($fileInfo.Name -like $ex) { return $false }
-                        }
-                    }
                     if ($Include) {
                         foreach ($inc in $Include) {
                             if ($fileInfo.Name -like $inc) { return $true }
                         }
                     } else { return $true }
+                } |
+                Where-Object {
+                    $fileInfo = $_ 
+                    if ($Exclude) {
+                        foreach ($ex in $Exclude) {
+                            if ($fileInfo.Name -like $ex) { return $false }
+                        }
+                        return $true
+                    } else {
+                        return $true
+                    }
                 } |
                 Get-Command { $_.FullName }
         
