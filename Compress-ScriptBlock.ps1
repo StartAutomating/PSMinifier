@@ -438,7 +438,7 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
             # figure out what it might be
             $unresolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
             [IO.File]::WriteAllText("$unresolvedOutputPath", $minified) # and then write content to disk.
-            if ($PassThru -and ([IO.File]::Exists("$unresolvedOutputPath"))) {
+            if ([IO.File]::Exists("$unresolvedOutputPath") -and $PassThru) {
                 [IO.FileInfo]"$unresolvedOutputPath"                
             }
         } else {
