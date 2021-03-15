@@ -179,13 +179,25 @@ jobs:
         uses: actions/checkout@v2
       - name: Use PSMinifier Action
         uses: StartAutomating/PSMinifier@GitHubAction
+        id: Minify
         with: 
           CommitMessage: Minifying $($_.Name)
+      - name: OutputMinifier
+        run: |
+          echo Original Size ${{ steps.Minify.outputs.OriginalSize }} Minified Size ${{ steps.Minify.outputs.MinifiedSize }} Minified Percent ${{ steps.Minify.outputs.MinifiedPercent }}
+          
+        shell: bash
       - name: Minify and GZip PSMinifier
         uses: StartAutomating/PSMinifier@GitHubAction
+        id: MinifyGZip
         with: 
           GZip: true
           CommitMessage: Minifying and GZipping $($_.Name)
+      - name: OutputMinifierGZip
+        run: |
+          echo Original Size ${{ steps.MinifyGZip.outputs.OriginalSize }} Minified Size ${{ steps.MinifyGZip.outputs.MinifiedSize }} Minified Percent ${{ steps.MinifyGZip.outputs.MinifiedPercent }}
+          
+        shell: bash
       - name: PublishMinifications
         uses: actions/upload-artifact@v2
         with: 
