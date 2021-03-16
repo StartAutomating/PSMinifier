@@ -1,15 +1,4 @@
-trigger: 
-  batch: true
-  paths: 
-    exclude: 
-    - '*/*.md'
-    - '*/*.MD'
-    - '*/*.txt'
-    - '*/*.gif'
-    - '*/*.png'
-    - '*/*.jpg'
-    - '*/*.mp3'
-    - '*/*.mp4'
+﻿
 parameters: 
   - name: ModulePath
     type: string
@@ -358,8 +347,8 @@ stages:
         steps: 
           - script: |
               brew update
-              brew tap caskroom/cask
-              brew cask install powershell
+              brew tap homebrew/cask
+              brew install --cask powershell
             displayName: Install PowerShell Core
           - pwsh: |
               $Parameters = @{}
@@ -457,7 +446,7 @@ stages:
 
   - stage: UpdatePowerShellGallery
     displayName: Update
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/main'))
     variables: 
       - group: Gallery
     jobs: 
@@ -466,6 +455,9 @@ stages:
         pool: 
           vmImage: windows-latest
         steps: 
+          - checkout: self
+            clean: true
+            persistCredentials: true
           - powershell: |
               $orgName, $moduleName = $env:BUILD_REPOSITORY_ID -split "/"
               $imported = Import-Module ".\$moduleName.psd1" -Force -PassThru
@@ -495,5 +487,6 @@ stages:
                   }
               }
             name: PublishPowerShellGallery
-            displayName: PublishPowerShellGallery    
+            displayName: PublishPowerShellGallery
+
 
