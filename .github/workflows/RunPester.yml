@@ -185,7 +185,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
       - name: Use PSMinifier Action
-        uses: StartAutomating/PSMinifier@0
+        uses: StartAutomating/PSMinifier@latest
         id: Minify
         with: 
           CommitMessage: Minifying $($_.Name)
@@ -197,7 +197,7 @@ jobs:
           
         shell: bash
       - name: Minify and GZip PSMinifier
-        uses: StartAutomating/PSMinifier@0
+        uses: StartAutomating/PSMinifier@latest
         id: MinifyGZip
         with: 
           GZip: true
