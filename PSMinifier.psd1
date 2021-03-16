@@ -1,5 +1,5 @@
 ﻿@{
-    ModuleVersion = '1.0'
+    ModuleVersion = '1.1'
     PowerShellVersion = '3.0'
     RootModule = 'PSMinifier.psm1'
     Description = 'A Miniature Minifier For PowerShell'
