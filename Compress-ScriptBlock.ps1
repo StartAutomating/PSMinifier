@@ -24,7 +24,7 @@ function Compress-ScriptBlock
             Split-Path | # root path
             Join-Path -ChildPath Compress-ScriptBlock.ps1 | # join it with Compress-ScriptBlock.ps1
             Get-Command | # get the command
-            Compress-ScriptBlock -Anonymous -GZip -DotSource | # Compress it, anonymized, and dot-sourced
+            Compress-ScriptBlock -GZip -DotSource | # Compress it, anonymized, and dot-sourced
             Set-Content -Path ( # And put it back into
                 Get-Module PSMinifier |
                     Split-Path |
@@ -35,7 +35,7 @@ function Compress-ScriptBlock
             Split-Path | # root path
             Join-Path -ChildPath Compress-ScriptBlock.ps1 | # join it with Compress-ScriptBlock.ps1
             Get-Command | # get the command
-            Compress-ScriptBlock -Anonymous | # Compress it, anonymized
+            Compress-ScriptBlock | # Compress it, anonymized
             Set-Content -Path ( # And put it back into
                 Get-Module PSMinifier |
                     Split-Path |
@@ -76,7 +76,17 @@ function Compress-ScriptBlock
     [Parameter(ValueFromPipelineByPropertyName)]
     [Alias('NoBlocks')]
     [switch]
-    $NoBlock
+    $NoBlock,
+
+    # If provided, will write the minified content to the specified path, instead of outputting it.
+    [Parameter(ValueFromPipelineByPropertyName)]
+    [string]
+    $OutputPath,
+
+    # If provided with -OutputPath, will output the file written to disk.
+    [Parameter(ValueFromPipelineByPropertyName)]
+    [switch]
+    $PassThru
     )
 
     begin {
@@ -264,7 +274,7 @@ function Compress-ScriptBlock
             }
         }
 
-                $CompressPipeline = { # If we're compressing a pipeline
+        $CompressPipeline = { # If we're compressing a pipeline
             param(
             [Parameter(ValueFromPipeline=$true)]
             [Management.Automation.Language.CommandBaseAst]$p)
@@ -364,6 +374,7 @@ function Compress-ScriptBlock
     }
 
     process {
+        if ($_ -is [Management.Automation.CommandInfo]) { $name = '' }
         # Now, call our minifier with this script block's AST
         $compressedScriptBlock = & $CompressScriptBlockAst $ScriptBlock.Ast
 
@@ -408,17 +419,30 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
                      ". {$compressedScriptBlock}" # otherwise, wrap it in {}s.
                 }
         }
-        if ($Name -and -not $Anonymous) { # If we've provided a -Name and don't want to be -Anonymous, we're assigning to a variable.
-            if (-not $GZip -and -not $DotSource) {  # If it's not GZipped or dotted,
-                $compressedScriptBlock = "{$compressedScriptBlock}" # we need to wrap it in {}s.
-            }
-            if ($Name -match '\W') { # If the name contained non-word characters,
-                "`${$name} = $compressedScriptBlock" # we need to wrap it in {}s.
+
+        $minified =
+            if ($Name -and -not $Anonymous) { # If we've provided a -Name and don't want to be -Anonymous, we're assigning to a variable.
+                if (-not $GZip -and -not $DotSource) {  # If it's not GZipped or dotted,
+                    $compressedScriptBlock = "{$compressedScriptBlock}" # we need to wrap it in {}s.
+                }
+                if ($Name -match '\W') { # If the name contained non-word characters,
+                    "`${$name} = $compressedScriptBlock" # we need to wrap it in {}s.
+                } else {
+                    "`$$name = $compressedScriptBlock" # otherwise, it's just $name = $compressedScriptBlock
+                }
             } else {
-                "`$$name = $compressedScriptBlock" # otherwise, it's just $name = $compressedScriptBlock
+                $compressedScriptBlock
+            }
+
+        if ($OutputPath) { # If we've been provided an -OutputPath
+            # figure out what it might be
+            $unresolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+            [IO.File]::WriteAllText("$unresolvedOutputPath", $minified) # and then write content to disk.
+            if ($PassThru -and [IO.File]::Exists("$unresolvedOutputPath")) {
+                [IO.FileInfo]"$unresolvedOutputPath"
             }
         } else {
-            $compressedScriptBlock
+            $minified # Otherwise, output the minified content.
         }
     }
 }
