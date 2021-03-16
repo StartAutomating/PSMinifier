@@ -191,9 +191,11 @@ jobs:
           CommitMessage: Minifying $($_.Name)
       - name: OutputMinifier
         run: |
+          echo GitHubActor $GITHUB_ACTOR
           echo Original Size ${{ steps.Minify.outputs.OriginalSize }} 
           echo Minified Size ${{ steps.Minify.outputs.MinifiedSize }} 
           echo Minified Percent ${{ steps.Minify.outputs.MinifiedPercent }}
+          
           
         shell: bash
       - name: Minify and GZip PSMinifier
