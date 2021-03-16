@@ -11,6 +11,16 @@
             Tags = 'Minifier'
             ProjectURI = 'https://github.com/StartAutomating/PSMinifier'
             LicenseURI = 'https://github.com/StartAutomating/PSMinifier/blob/master/LICENSE'
+            ReleaseNotes = @'
+v1.1
+----
+Compress-ScriptBlock now has -OutputPath/-PassThru
+Added Support for GitHub Action
+
+v1.0
+----
+Initial Version of Minifier
+'@
         }
     }
 }
