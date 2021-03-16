@@ -57,6 +57,27 @@ For even more space savings and obfuscation, you can GZip minified code:
 ~~~
 
 
+### PSMinifier Action Output
+
+The PSMinifier action includes some output parameters, such as:
+* MinifiedPercent
+* MinifiedSize
+* OriginalSize
+
+~~~yaml
+- name: Use PSMinifier Action
+  uses: StartAutomating/PSMinifier@v1.1
+  id: Minify
+  with: 
+    CommitMessage: Minifying $($_.Name)
+- name: OutputMinifier
+  run: |    
+    echo Original Size ${{ steps.Minify.outputs.OriginalSize }} 
+    echo Minified Size ${{ steps.Minify.outputs.MinifiedSize }} 
+    echo Minified Percent ${{ steps.Minify.outputs.MinifiedPercent }}
+~~~
+
+
 
 ----------------
 ### Module Commands
