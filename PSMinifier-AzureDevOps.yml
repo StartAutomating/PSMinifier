@@ -495,7 +495,5 @@ stages:
                   }
               }
             name: PublishPowerShellGallery
-            displayName: PublishPowerShellGallery
-
-    condition: succeeded()
+            displayName: PublishPowerShellGallery    
 
