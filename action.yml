@@ -1,5 +1,5 @@
 ﻿
-name: PowerShell Minifier
+name: psminifier
 description: A Miniature Minifier For PowerShell
 inputs: 
   Include: 
