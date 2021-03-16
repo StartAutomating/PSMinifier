@@ -52,7 +52,7 @@ For even more space savings and obfuscation, you can GZip minified code:
 - name: PSMinifier
   uses: StartAutomating/PSMinifier@v1.1
   with:
-    CommitMessage: "Minifying $($_.Name)"
+    CommitMessage: "Minifying and GZipping $($_.Name)"
     GZip: true
 ~~~
 
