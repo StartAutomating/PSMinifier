@@ -420,7 +420,7 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
                 }
         }
 
-        $minified = 
+        $minified =
             if ($Name -and -not $Anonymous) { # If we've provided a -Name and don't want to be -Anonymous, we're assigning to a variable.
                 if (-not $GZip -and -not $DotSource) {  # If it's not GZipped or dotted,
                     $compressedScriptBlock = "{$compressedScriptBlock}" # we need to wrap it in {}s.
@@ -439,7 +439,7 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
             $unresolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
             [IO.File]::WriteAllText("$unresolvedOutputPath", $minified) # and then write content to disk.
             if ([IO.File]::Exists("$unresolvedOutputPath") -and $PassThru) {
-                [IO.FileInfo]"$unresolvedOutputPath"                
+                [IO.FileInfo]"$unresolvedOutputPath"
             }
         } else {
             $minified # Otherwise, output the minified content.
