@@ -24,11 +24,9 @@ inputs:
     description: If provided, will commit changes made to the workspace with this commit message.
   UserEmail: 
     required: false
-    default: "info@start-automating.com"
     description: The user email associated with a git commit.
   UserName: 
     required: false
-    default: "StartAutomating/PSMinifier"
     description: The user name associated with a git commit.
 branding: 
   icon: minimize
@@ -108,11 +106,11 @@ runs:
         
         # The user email associated with a git commit.
         [string]
-        $UserEmail = "info@start-automating.com",
+        $UserEmail,
         
         # The user name associated with a git commit.
         [string]
-        $UserName = "StartAutomating/PSMinifier"
+        $UserName
         )
         
         "::group::Parameters" | Out-Host
@@ -205,6 +203,8 @@ runs:
         "::endgroup::" | Out-Host
         
         if ($CommitMessage -and $minifiedCommands) {
+            if (-not $UserName) { $UserName = $env:GITHUB_ACTOR }
+            if (-not $UserEmail) { $UserEmail = "$UserName@github.com" }
             git config --global user.email $UserEmail
             git config --global user.name  $UserName
         
