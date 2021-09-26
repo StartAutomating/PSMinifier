@@ -1,5 +1,5 @@
 ﻿@{
-    ModuleVersion = '1.1'
+    ModuleVersion = '1.1.1'
     PowerShellVersion = '3.0'
     RootModule = 'PSMinifier.psm1'
     Description = 'A Miniature Minifier For PowerShell'
@@ -12,6 +12,10 @@
             ProjectURI = 'https://github.com/StartAutomating/PSMinifier'
             LicenseURI = 'https://github.com/StartAutomating/PSMinifier/blob/master/LICENSE'
             ReleaseNotes = @'
+v1.1.1
+----
+Compress-ScriptBlock bugfix:  try/catch/finally blocks now appropriately handled (Issue #3)
+
 v1.1
 ----
 Compress-ScriptBlock now has -OutputPath/-PassThru
