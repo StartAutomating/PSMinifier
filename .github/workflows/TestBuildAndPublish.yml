@@ -1,5 +1,5 @@
 ﻿
-name: TestAndTryAction
+name: Test Build And Publish
 on: 
   workflow_dispatch: 
   push: 
