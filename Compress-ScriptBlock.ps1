@@ -235,12 +235,12 @@ function Compress-ScriptBlock
                         'catch'
                         if ($cc.CatchTypes) {
                             foreach ($ct in $cc.CatchTypes) {
-                                if ($ct.FullName.StartsWith('System.')) {
-                                    '['
-                                    $ct.FullName.Substring('System.'.Length)
+                                if ($ct.TypeName.FullName.StartsWith('System.')) {
+                                    ' ['
+                                    $ct.TypeName.FullName.Substring('System.'.Length)
                                     ']'
                                 } else {
-                                    '['
+                                    ' ['
                                     $ct.FullName
                                     ']'
                                 }
@@ -249,12 +249,13 @@ function Compress-ScriptBlock
                         '{'
                             @($cc.Body.statements | & $CompressStatement) -join ';'
                         '}'
-                    }) -join ''
+                    }
                     if ($s.Finally) { # then the finally (if it exists)
                         'finally{'
                             $($s.Finally.statements | & $CompressStatement) -join ';'
                         '}'
                     }
+                    ) -join ''
                 }
                 elseif ($s -is $CommandExpression) { # If it's a command expression
                     if ($s.Expression) {
@@ -294,8 +295,10 @@ function Compress-ScriptBlock
                             "{$(& $CompressScriptBlockAst $e.ScriptBlock)}" # and compress any nested script blocks
                         } else { $e }
                     }) -join ' '
-                } else {
+                } elseif ($p) {
                     $p.ToString()
+                } else {
+                    $null = $null
                 }
             }
         }

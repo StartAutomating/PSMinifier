@@ -23,4 +23,24 @@ describe 'PSMinifier' {
             throw "GZipped length $($gzipped.Length) exceeds minified length $($compressed.Length)"
         }
     }
+
+    it 'Can shrink try catch blocks' {
+
+        $originalScript = {
+            try {
+                thisMightThrowBecauseThereIsNoCommand | # this commend should go away.
+                    thispipeline also uses     a lot of whitespace
+            } catch [System.SystemException] {
+                "Oh No! An Exception Occured" |
+                    Out-String
+            } finally {
+                "FinallyGotSomethingDone" | Out-String
+            }
+        }
+        $compresedScript = [Scriptblock]::Create((Compress-ScriptBlock -ScriptBlock $originalScript))
+        "$compressedScript".Length |
+            Should -BeLessThan "$originalScript".Length
+        @(& $compresedScript) -join '' |
+            Should -BeLike "*Oh*No!*An*Exception*Occured*FinallyGotSomethingDone*"
+    }
 }
