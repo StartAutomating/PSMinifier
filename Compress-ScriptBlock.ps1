@@ -256,7 +256,6 @@ function Compress-ScriptBlock
                         '}'
                     }
                     ) -join ''
-                    
                 }
                 elseif ($s -is $CommandExpression) { # If it's a command expression
                     if ($s.Expression) {
