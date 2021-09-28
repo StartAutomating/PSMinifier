@@ -1,5 +1,5 @@
 ﻿@{
-    ModuleVersion = '1.1.1'
+    ModuleVersion = '1.1.2'
     PowerShellVersion = '3.0'
     RootModule = 'PSMinifier.psm1'
     Description = 'A Miniature Minifier For PowerShell'
@@ -12,16 +12,20 @@
             ProjectURI = 'https://github.com/StartAutomating/PSMinifier'
             LicenseURI = 'https://github.com/StartAutomating/PSMinifier/blob/master/LICENSE'
             ReleaseNotes = @'
-v1.1.1
+### v1.1.2
+----
+Compress-ScriptBlock bugfix: now handling [Hashtables] and [Ordered] (Issue #2)
+
+### v1.1.1
 ----
 Compress-ScriptBlock bugfix:  try/catch/finally blocks now appropriately handled (Issue #3)
 
-v1.1
+### v1.1
 ----
 Compress-ScriptBlock now has -OutputPath/-PassThru
 Added Support for GitHub Action
 
-v1.0
+### v1.0
 ----
 Initial Version of Minifier
 '@
