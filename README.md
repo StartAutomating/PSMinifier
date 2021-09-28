@@ -1,5 +1,5 @@
 
-PSMinifier [1.1]
+PSMinifier [1.1.2]
 ================
 A Miniature Minifier For PowerShell
 

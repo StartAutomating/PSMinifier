@@ -92,7 +92,7 @@ function Compress-ScriptBlock
     begin {
         # First, we declare a number of quick variables to access AST types.
         foreach ($_ in 'BinaryExpression','Expression','ScriptBlockExpression','ParenExpression','ArrayExpression',
-            'SubExpression', 'Command','CommandExpression', 'IfStatement', 'LoopStatement',
+            'SubExpression', 'Command','CommandExpression', 'IfStatement', 'LoopStatement', 'Hashtable', 'ConvertExpression',
             'FunctionDefinition','AssignmentStatement','Pipeline','Statement','TryStatement','CommandExpression') {
             $ExecutionContext.SessionState.PSVariable.Set($_, "Management.Automation.Language.${_}Ast" -as [Type])
         }
@@ -343,6 +343,19 @@ function Compress-ScriptBlock
                     '$('
                     . $compressPart $e
                     ')'
+                }
+                elseif ($e -is $convertExpression) {
+                    "[$($e.Type.TypeName -replace '\s')]"
+                    . $CompressExpression $e.Child
+                }
+                elseif ($e -is $hashtable) {
+                    '@{' +
+                    (@(foreach ($kvp in $e.KeyValuePairs) {
+                        @(. $compressPart $kvp.Item1
+                        '='
+                        . $compressPart $kvp.Item2
+                        ) -join ''
+                    })  -join ';')+ '}'
                 }
                 elseif ($e.Elements) {
                     @(foreach ($_ in $e.Elements) {
