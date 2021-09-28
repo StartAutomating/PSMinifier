@@ -43,4 +43,28 @@ describe 'PSMinifier' {
         @(& $compresedScript) -join '' |
             Should -BeLike "*Oh*No!*An*Exception*Occured*FinallyGotSomethingDone*"
     }
+
+    it 'Can compress a [hashtable]' {
+        Compress-ScriptBlock -ScriptBlock {
+            @{
+                a = "b"
+                c = "d"
+                e = @{
+                    f = "h"
+                }
+            }
+        } | Should -Not -Match "\n"
+    }
+
+    it 'Can compress an ordered [hashtable]' {
+        Compress-ScriptBlock -ScriptBlock {
+            [Ordered]@{
+                a = "b"
+                c = "d"
+                e = @{
+                    f = "h"
+                }
+            }
+        } | Should -Not -Match "\n"
+    }
 }
