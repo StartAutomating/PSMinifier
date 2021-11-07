@@ -67,4 +67,17 @@ describe 'PSMinifier' {
             }
         } | Should -Not -Match "\n"
     }
+
+    it 'Can compress a using statement' {
+        $compressed = Compress-ScriptBlock -ScriptBlock ([ScriptBlock]::Create(@"
+using namespace System.Security.Cryptography
+using namespace System.Windows.Forms
+echo 1
+echo 2
+"@))
+        $compressed | Should -Match "using"
+        $compressed | Should -Not -Match "\n"
+
+        Invoke-Expression $compressed | Select-Object -First 1 | Should -Be 1
+    }
 }

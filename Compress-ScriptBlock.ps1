@@ -110,7 +110,13 @@ function Compress-ScriptBlock
             $ps = $ast.ProcessBlock.Statements
             $es = $ast.EndBlock.Statements
 
-            @(if ($ast.ParamBlock) { # Walk thru the param block.
+            @(
+            if ($ast.UsingStatements) {
+                (@(foreach ($using in $ast.UsingStatements) {
+                    "$using"
+                }) -join ';') + ';'
+            }
+            if ($ast.ParamBlock) { # Walk thru the param block.
                 $pb = $ast.ParamBlock
                 foreach ($a in $pb.Attributes) {
                     $a # Declaration attributes are emitted unaltered
@@ -235,15 +241,9 @@ function Compress-ScriptBlock
                         'catch'
                         if ($cc.CatchTypes) {
                             foreach ($ct in $cc.CatchTypes) {
-                                if ($ct.TypeName.FullName.StartsWith('System.')) {
-                                    ' ['
-                                    $ct.TypeName.FullName.Substring('System.'.Length)
-                                    ']'
-                                } else {
-                                    ' ['
-                                    $ct.FullName
-                                    ']'
-                                }
+                                ' ['
+                                $ct.TypeName.FullName
+                                ']'
                             }
                         }
                         '{'

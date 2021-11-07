@@ -1,5 +1,5 @@
 
-PSMinifier [1.1.2]
+PSMinifier [1.1.3]
 ================
 A Miniature Minifier For PowerShell
 
@@ -13,7 +13,7 @@ The PSMinifier action is easy to use.  By default, it will minify all .ps1 files
 
 ~~~Yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
 ~~~
 
 This will generate a .min.ps1 for every PowerShell in your workspace.
@@ -25,7 +25,7 @@ If you would like to check in the minified code, simply provide a commit message
 
 ~~~yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
   with:
     CommitMessage: "Minifying $($_.Name)"
 ~~~
@@ -38,7 +38,7 @@ The parameters of the GitHub action largely map to the parameters of Compress-Sc
 * Exclude
 ~~~yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
   with:
     Include: "*.ps1"
     Exclude: "*.tests.ps1"
@@ -50,7 +50,7 @@ The parameters of the GitHub action largely map to the parameters of Compress-Sc
 For even more space savings and obfuscation, you can GZip minified code:
 ~~~yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
   with:
     CommitMessage: "Minifying and GZipping $($_.Name)"
     GZip: true
@@ -66,7 +66,7 @@ The PSMinifier action includes some output parameters, such as:
 
 ~~~yaml
 - name: Use PSMinifier Action
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
   id: Minify
   with: 
     CommitMessage: Minifying $($_.Name)
