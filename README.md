@@ -1,5 +1,5 @@
 
-PSMinifier [1.1.2]
+PSMinifier [1.1.3]
 ================
 A Miniature Minifier For PowerShell
 
@@ -13,7 +13,7 @@ The PSMinifier action is easy to use.  By default, it will minify all .ps1 files
 
 ~~~Yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
 ~~~
 
 This will generate a .min.ps1 for every PowerShell in your workspace.
@@ -25,7 +25,7 @@ If you would like to check in the minified code, simply provide a commit message
 
 ~~~yaml
 - name: PSMinifier
-  uses: StartAutomating/PSMinifier@v1.1
+  uses: StartAutomating/PSMinifier@v1.1.3
   with:
     CommitMessage: "Minifying $($_.Name)"
 ~~~
