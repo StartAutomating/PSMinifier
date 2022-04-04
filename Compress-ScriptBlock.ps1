@@ -87,7 +87,10 @@ function Compress-ScriptBlock
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]
         $FirstVariableName = 'a',
-
+        # If provided, will be used as the name of the first variable
+        [string]
+        [validateSet(';', "`r`n", "`n")]
+        $StatementSeparator = ';',
         # If provided with -OutputPath, will output the file written to disk.
         [Parameter(ValueFromPipelineByPropertyName)]
         [switch]
@@ -100,8 +103,8 @@ function Compress-ScriptBlock
         foreach ($_ in 'BinaryExpression', 'Expression', 'ScriptBlockExpression', 'ParenExpression', 'ArrayExpression', 'ArrayLiteral',
             'SubExpression', 'Command', 'CommandExpression', 'IfStatement', 'LoopStatement', 'Hashtable', 'ConvertExpression',
             'FunctionDefinition', 'AssignmentStatement', 'Pipeline', 'Statement', 'TryStatement',  
-            'VariableExpression', 'IndexExpression', 'InvokeMemberExpression', 'CommandParameter', 'ConstantExpression', 
-            'StringConstantExpression', 'MemberExpression', 'ExpandableStringExpression')
+            'VariableExpression', 'TypeExpression', 'IndexExpression', 'InvokeMemberExpression', 'CommandParameter', 'ConstantExpression', 
+            'StringConstantExpression', 'MemberExpression', 'ExpandableStringExpression', 'UnaryExpression')
         {
             $ExecutionContext.SessionState.PSVariable.Set($_, "Management.Automation.Language.${_}Ast" -as [Type])
         }
@@ -127,7 +130,7 @@ function Compress-ScriptBlock
                     (@(foreach ($using in $ast.UsingStatements)
                             {
                                 "$using"
-                            }) -join ';') + ';'
+                            }) -join $StatementSeparator) + $StatementSeparator
                 }
                 if ($ast.ParamBlock)
                 {
@@ -152,25 +155,25 @@ function Compress-ScriptBlock
                 if ($dps)
                 {
                     'dynamicParam{'
-                    @($dps | Compress-Statement) -join ';'
+                    @($dps | Compress-Statement) -join $StatementSeparator
                     '}'
                 }
                 if ($bs)
                 {
                     'begin{'
-                    @($bs | Compress-Statement) -join ';'
+                    @($bs | Compress-Statement) -join $StatementSeparator
                     '}'
                 }
                 if ($ps)
                 {
                     'process{'
-                    @($ps | Compress-Statement) -join ';'
+                    @($ps | Compress-Statement) -join $StatementSeparator
                     '}'
                 }
                 if ($es)
                 {
                     if ($bs -or $ps) { 'end{'}
-                    @($es | Compress-Statement) -join ';'
+                    @($es | Compress-Statement) -join $StatementSeparator
                     if ($bs -or $ps) { '}'}
                 }) -join ''
         }
@@ -213,14 +216,14 @@ function Compress-ScriptBlock
                                 $c.Item1 | Compress-Pipeline
                                 ')'
                                 '{' # and compressing the inner statements
-                                @($c.Item2.Statements | Compress-Statement) -join ';'
+                                @($c.Item2.Statements | Compress-Statement) -join $StatementSeparator
                                 $nc++
                                 '}'
                             }
                             if ($s.ElseClause)
                             {
                                 'else{'
-                                @($s.ElseClause.Statements | Compress-Statement) -join ';'
+                                @($s.ElseClause.Statements | Compress-Statement) -join $StatementSeparator
                                 '}'
                             }
                         ) -join ''
@@ -229,28 +232,61 @@ function Compress-ScriptBlock
                     {
                         # If it's an assignment,
                         $as = $s
-                        $ThisVariable = $as.Left.ToString().Trim()
-                        $global:CompressedVariables."$ThisVariable" = $global:NextVariableName
                         @(
-                            '$' + $global:NextVariableName
+                            $GenerateNewVariable = $as.Left -is $VariableExpression -and $as.Left.VariablePath.ToString().Length -gt $global:NextVariableName.Length
+                            if($as.Left -is $MemberExpression)
+                            {
+                                $ThisVariable = $as.Left.Expression.Extent
+                            }
+                            else
+                            {
+                                $ThisVariable = $as.Left.Extent
+                            }
+                            # Assume we aren't going to rename it, insert the variable into the cache with its own name
+                            $global:CompressedVariables."$ThisVariable" = "$ThisVariable"
+                            if($GenerateNewVariable)
+                            {
+                                $global:CompressedVariables."$ThisVariable" = '$' + $global:NextVariableName
+                                if($global:NextVariableName[-1] -eq 'z')
+                                {
+                                    [string]$global:NextVariableName = (0..($global:NextVariableName.Length) | %{ 'a' }) -Join ''
+                                }
+                                else
+                                {
+                                    $global:NextVariableName = $global:NextVariableName.Substring(0, $global:NextVariableName.Length - 1) + [char](([int][char]$global:NextVariableName[-1]) + 1)
+                                }
+                            }
+                            if(!$as.Left.Static)
+                            {
+                                $global:CompressedVariables."$ThisVariable"
+                            }
+                            else
+                            {
+                                $as.Left.Expression.Extent
+                            }
+                            if($as.Left.Member)
+                            {
+                                if($as.Left.Static)
+                                {
+                                    "::"
+                                }
+                                else
+                                {
+                                    "."
+                                }
+                                $as.Left.Member
+                            }
                             $as.ErrorPosition.Text
                             if ($as.Right -is [Management.Automation.Language.StatementAst])
                             {
-                                @($as.right | Compress-Statement) -join ';' # compress the right side
+                                @($as.right | Compress-Statement) -join $StatementSeparator # compress the right side
                             }
                             else
                             {
                                 throw "Unexpected type $($as.Right.GetType().Name)"
                             }
                         ) -join ''
-                        if($global:NextVariableName[-1] -eq 'z')
-                        {
-                            [string]$global:NextVariableName = (0..($global:NextVariableName.Length) | %{ 'a' }) -Join ''
-                        }
-                        else
-                        {
-                            $global:NextVariableName = $global:NextVariableName.Substring(0, $global:NextVariableName.Length - 1) + [char](([int][char]$global:NextVariableName[-1]) + 1)
-                        }
+                        
                     }                        
                     {$_ -is $LoopStatement}
                     {
@@ -293,7 +329,7 @@ function Compress-ScriptBlock
                             }
 
                             '{'
-                            @($s.Body.Statements | Compress-Statement) -join ';'
+                            @($s.Body.Statements | Compress-Statement) -join $StatementSeparator
                             '}'
                             if ($loopType -eq 'dowhile')
                             {
@@ -314,7 +350,7 @@ function Compress-ScriptBlock
                         # If it's a type/catch
                         @(
                             'try{'
-                            @($s.Body.statements | Compress-Statement) -join ';' # minify the try
+                            @($s.Body.statements | Compress-Statement) -join $StatementSeparator # minify the try
                             '}'
                             foreach ($cc in $s.CatchClauses)
                             {
@@ -330,14 +366,14 @@ function Compress-ScriptBlock
                                     }
                                 }
                                 '{'
-                                @($cc.Body.statements | Compress-Statement) -join ';'
+                                @($cc.Body.statements | Compress-Statement) -join $StatementSeparator
                                 '}'
                             }
                             if ($s.Finally)
                             {
                                 # then the finally (if it exists)
                                 'finally{'
-                                $($s.Finally.statements | Compress-Statement) -join ';'
+                                $($s.Finally.statements | Compress-Statement) -join $StatementSeparator
                                 '}'
                             }
                         ) -join ''
@@ -474,35 +510,34 @@ function Compress-ScriptBlock
                     }
                     elseif($e -is $MemberExpression)
                     {
-                        if($e -is $InvokeMemberExpression)
+                        $Separator = "."
+                        if($e.Static)
                         {
-                            $Separator = "."
-                            if($e.Static)
-                            {
-                                $Separator = "::"
-                            }
-                            
-                            "$($e.Expression)$($Separator)$($e.Member)(" + `
-                                "$(($e.Arguments | %{ 
-                                    if($_ -isnot $MemberExpression)
-                                    {
-                                        Compress-Expression $_ 
-                                    }
-                                    else
-                                    {
-                                        $_
-                                    }
-                                }) -Join ','))"
+                            $Separator = "::"
                         }
-                        else
+                        $CompressedMemberExpression = $e.Expression
+                        if($true -or $e.Expression -isnot $MemberExpression -or $e.Expression -is $InvokeMemberExpression)
                         {
-                            $CompressedMemberExpression = $e.Expression
-                            if($e.Expression -isnot $MemberExpression)
-                            {
-                                $CompressedMemberExpression = Compress-Expression $e.Expression
-                            }
-                            "$($CompressedMemberExpression).$($e.Member)"
+                            $CompressedMemberExpression = Compress-Expression $e.Expression
                         }
+                        @(
+                            "$($CompressedMemberExpression)$($Separator)$($e.Member)"
+                            if($e -is $InvokeMemberExpression)
+                            {
+                                "("
+                                @($e.Arguments | %{ 
+                                        if($true -or $_ -isnot $MemberExpression)
+                                        {
+                                            Compress-Expression $_ 
+                                        }
+                                        else
+                                        {
+                                            $_
+                                        }
+                                    }) -Join ','
+                                ")"
+                            }
+                        ) -Join ''
                     }
                     elseif($e -is $ExpandableStringExpression)
                     {
@@ -531,7 +566,22 @@ function Compress-ScriptBlock
                     }
                     elseif($e -is $IndexExpression)
                     {
-                        "$(Compress-Expression $e.Target)[$($e.Index)]"
+                        "$(Compress-Expression $e.Target)[$(Compress-Expression $e.Index)]"
+                    }
+                    elseif($e -is $UnaryExpression)
+                    {
+                        $Child = Compress-Expression $e.Child
+                        switch($e.TokenKind)
+                        {
+                            PostfixPlusPlus { "$($Child)++"}
+                            PostfixMinusMinus { "$($Child)--"}
+                            PlusPlus { "++$($Child)"}
+                            MinusMinus { "--$($Child)"}
+                        }
+                    }
+                    elseif($e -is $TypeExpression)
+                    {
+                        $e.Extent.Text
                     }
                     elseif($e -is $VariableExpression)
                     {
@@ -543,7 +593,7 @@ function Compress-ScriptBlock
                         }
                         else
                         {
-                            '$' + $CompressedVariableName
+                            $CompressedVariableName
                         }
                     }
                     elseif ($e -is $ScriptBlockExpression) # If it was a script expression
@@ -562,13 +612,13 @@ function Compress-ScriptBlock
                     elseif ($e -is $ArrayExpression)
                     {
                         '@('
-                        @($e.Subexpression.Statements | Compress-Statement) -join ';'                        
+                        @($e.Subexpression.Statements | Compress-Statement) -join $StatementSeparator                        
                         ')'
                     }
                     elseif ($e -is $SubExpression)
                     {
                         '$('
-                        @($e.Subexpression.Statements | Compress-Statement) -join ';'   
+                        @($e.Subexpression.Statements | Compress-Statement) -join $StatementSeparator   
                         ')'
                     }
                     elseif ($e -is $convertExpression)
@@ -585,7 +635,7 @@ function Compress-ScriptBlock
                                         '='
                                         Compress-Statement $kvp.Item2
                                     ) -join ''
-                                })  -join ';')+ '}'
+                                })  -join $StatementSeparator)+ '}'
                     }
                     elseif($e -is $ConstantExpression)
                     {
@@ -652,11 +702,13 @@ function Compress-ScriptBlock
                         "$e"
                     }
                 }
-
-                $ExpandedExpressions = Expand-Expression $e
-                $MinifiedExpression = $ExpandedExpressions -join ' '
-                Write-Verbose "Line $($e.Extent.StartLineNumber)`tExpression`t: $($e.Extent.Text) -> $MinifiedExpression"
-                $MinifiedExpression
+                if($e)
+                {
+                    $ExpandedExpressions = Expand-Expression $e
+                    $MinifiedExpression = $ExpandedExpressions -join ' '
+                    Write-Verbose "Line $($e.Extent.StartLineNumber)`t$($e.GetType().Name)`t: $($e.Extent.Text) -> $MinifiedExpression"
+                    $MinifiedExpression
+                }
             }
         }
     }
