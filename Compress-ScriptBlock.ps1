@@ -83,6 +83,11 @@ function Compress-ScriptBlock
         [string]
         $OutputPath,
 
+        # If provided, will be used as the name of the first variable
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [string]
+        $FirstVariableName = 'a',
+
         # If provided with -OutputPath, will output the file written to disk.
         [Parameter(ValueFromPipelineByPropertyName)]
         [switch]
@@ -92,16 +97,16 @@ function Compress-ScriptBlock
     begin
     {
         # First, we declare a number of quick variables to access AST types.
-        foreach ($_ in 'BinaryExpression', 'Expression', 'ScriptBlockExpression', 'ParenExpression', 'ArrayExpression',
+        foreach ($_ in 'BinaryExpression', 'Expression', 'ScriptBlockExpression', 'ParenExpression', 'ArrayExpression', 'ArrayLiteral',
             'SubExpression', 'Command', 'CommandExpression', 'IfStatement', 'LoopStatement', 'Hashtable', 'ConvertExpression',
-            'FunctionDefinition', 'AssignmentStatement', 'Pipeline', 'Statement', 'TryStatement', 'CommandExpression', 
+            'FunctionDefinition', 'AssignmentStatement', 'Pipeline', 'Statement', 'TryStatement',  
             'VariableExpression', 'IndexExpression', 'InvokeMemberExpression', 'CommandParameter', 'ConstantExpression', 
             'StringConstantExpression', 'MemberExpression', 'ExpandableStringExpression')
         {
             $ExecutionContext.SessionState.PSVariable.Set($_, "Management.Automation.Language.${_}Ast" -as [Type])
         }
         $global:CompressedVariables = @{}
-        $NextVariableName = 'a'
+        $global:NextVariableName = $FirstVariableName
         # Next, we declare a bunch of ScriptBlocks that handle different scenarios for compressing the AST.
         # These will recursively call each other as needed.
         Function Compress-ScriptBlockAst
@@ -179,207 +184,228 @@ function Compress-ScriptBlock
                 [Management.Automation.Language.StatementAst]$s)
             process
             {
-                if ($s -is $IfStatement)
+                $CallStackDepth = (Get-PSCallStack | measure | select -Expand Count)    
+                Write-Verbose "Line $($s.Extent.StartLineNumber) Depth: $($CallStackDepth) $($s.GetType().BaseType.Name).$($s.GetType().Name) $($s.Extent.Text)"
+                $Type = $s.GetType().Name.Replace('Ast', '')
+                switch($s)
                 {
-                    # If it's an if statement
-                    $nc = 0
-                    @(foreach ($c in $s.Clauses)
-                        {
-                            # minify each clause
-                            if( -not $nc)
+                    {$_ -is $IfStatement}
+                    {
+                        # If it's an if statement
+                        $nc = 0
+                        # Clauses is ReadOnlyCollection<Tuple<PipelineBaseAst,StatementBlockAst>>
+                        @(foreach ($c in $s.Clauses)
                             {
-                                'if'
+                                # minify each clause
+                                if( -not $nc)
+                                {
+                                    'if'
+                                }
+                                else
+                                {
+                                    'elseif'
+                                }
+                                '(' # by compressing the condition pipeline
+                                # Item1 is first Item in the tuple, making Item1 a PipelineBaseAst
+                                # PipelineElements is a property of PipelineAst which derives from PipelineBaseAst
+                                # In practice, PipelineElement shows up sometimes as CommandExpressionAst
+                                # They both inherit from StatementAst so we use Compress-Statement
+                                $c.Item1 | Compress-Pipeline
+                                ')'
+                                '{' # and compressing the inner statements
+                                @($c.Item2.Statements | Compress-Statement) -join ';'
+                                $nc++
+                                '}'
+                            }
+                            if ($s.ElseClause)
+                            {
+                                'else{'
+                                @($s.ElseClause.Statements | Compress-Statement) -join ';'
+                                '}'
+                            }
+                        ) -join ''
+                    }
+                    {$_ -is $AssignmentStatement}
+                    {
+                        # If it's an assignment,
+                        $as = $s
+                        $ThisVariable = $as.Left.ToString().Trim()
+                        $global:CompressedVariables."$ThisVariable" = $global:NextVariableName
+                        @(
+                            '$' + $global:NextVariableName
+                            $as.ErrorPosition.Text
+                            if ($as.Right -is [Management.Automation.Language.StatementAst])
+                            {
+                                @($as.right | Compress-Statement) -join ';' # compress the right side
                             }
                             else
                             {
-                                'elseif'
+                                throw "Unexpected type $($as.Right.GetType().Name)"
                             }
-                            '(' # by compressing the condition pipeline
-                            @($c.Item1.PipelineElements | Compress-Pipeline) -join '|'
-                            ')'
-                            '{' # and compressing the inner statements
-                            @($c.Item2.Statements | Compress-Statement) -join ';'
-                            $nc++
-                            '}'
-                        }
-                        if ($s.ElseClause)
+                        ) -join ''
+                        if($global:NextVariableName[-1] -eq 'z')
                         {
-                            'else{'
-                            @($s.ElseClause.Statements | Compress-Statement) -join ';'
-                            '}'
+                            [string]$global:NextVariableName = (0..($global:NextVariableName.Length) | %{ 'a' }) -Join ''
                         }
-                    ) -join ''
-                }
-                elseif ($s -is $AssignmentStatement)
-                {
-                    # If it's an assignment,
-                    $as = $s
-                    $ThisVariable = $as.Left.ToString().Trim()
-                    $global:CompressedVariables."$ThisVariable" = $NextVariableName
-                    @(
-                        '$' + $NextVariableName
-                        $as.ErrorPosition.Text
-                        if ($as.Right -is [Management.Automation.Language.StatementAst])
+                        else
                         {
-                            @($as.right | Compress-Statement) -join ';' # compress the right side
-                        }) -join ''
-                    if($NextVariableName[-1] -eq 'z')
+                            $global:NextVariableName = $global:NextVariableName.Substring(0, $global:NextVariableName.Length - 1) + [char](([int][char]$global:NextVariableName[-1]) + 1)
+                        }
+                    }                        
+                    {$_ -is $LoopStatement}
                     {
-                        [string]$NextVariableName += "a"
-                    }
-                    else
-                    {
-                        $NextVariableName = $NextVariableName.Substring(0, $NextVariableName.Length - 1) + [char](([int][char]$NextVariableName[-1]) + 1)
-                    }
-                }
-                elseif ($s -is $LoopStatement)
-                {
-                    # If it's a loop
-                    $loopType = $s.GetType().Name.Replace('StatementAst', '') # determine it's type
-                    @(
-                        if ($s.Label)
-                        {
-                            # add the loop label if it exists
-                            ":$($s.Label) "
-                        }
-                        if ($loopType -eq 'foreach')
-                        {
-                            # and recreate each loop condition.
-                            'foreach('
-                            $s.Variable
-                            ' in '
-                            Compress-Part $s.Condition
-                            ')'
-                        }
-                        elseif ($loopType -eq 'for')
-                        {
-                            'for('
-                            $s.Initializer
-                            ';'
-                            $s.Condition
-                            ';'
-                            $s.Iterator
-                            ')'
-                        }
-                        elseif ($loopType -eq 'while')
-                        {
-                            'while('
-                            $s.Condition
-                            ')'
-                        }
-                        elseif ($loopType -eq 'dowhile')
-                        {
-                            'do'
-                        }
-
-                        '{'
-                        @($s.Body.Statements | Compress-Statement) -join ';'
-                        '}'
-                        if ($loopType -eq 'dowhile')
-                        {
-                            'while('
-                            $s.Condition
-                            ')'
-                        }
-                    ) -join ''
-                }
-                elseif ($s -is $AssignmentStatement)
-                {
-                    # If it's an assignment,
-                    $as = $s
-                    @(
-                        $as.Left.ToString().Trim()
-                        $as.ErrorPosition.Text
-                        if ($as.Right -is [Management.Automation.Language.StatementAst])
-                        {
-                            @($as.right | Compress-Statement) -join ';' # compress the right side
-                        }) -join ''
-                }
-                elseif ($s -is $Pipeline)
-                {
-                    # If it's a pipeline
-                    @($s.PipelineElements | Compress-Pipeline) -join '|' # minify the pipeline and join by |
-                }
-                elseif ($s -is $TryStatement)
-                {
-                    # If it's a type/catch
-                    @(
-                        'try{'
-                        @($s.Body.statements | Compress-Statement) -join ';' # minify the try
-                        '}'
-                        foreach ($cc in $s.CatchClauses)
-                        {
-                            # then each of the catches
-                            'catch'
-                            if ($cc.CatchTypes)
+                        # If it's a loop
+                        $loopType = $s.GetType().Name.Replace('StatementAst', '') # determine it's type
+                        @(
+                            if ($s.Label)
                             {
-                                foreach ($ct in $cc.CatchTypes)
-                                {
-                                    ' ['
-                                    $ct.TypeName.FullName
-                                    ']'
-                                }
+                                # add the loop label if it exists
+                                ":$($s.Label) "
                             }
+                            if ($loopType -eq 'foreach')
+                            {
+                                # and recreate each loop condition.
+                                'foreach('
+                                $s.Variable
+                                ' in '
+                                Compress-Pipeline $s.Condition
+                                ')'
+                            }
+                            elseif ($loopType -eq 'for')
+                            {
+                                'for('
+                                $s.Initializer
+                                ';'
+                                $s.Condition
+                                ';'
+                                $s.Iterator
+                                ')'
+                            }
+                            elseif ($loopType -eq 'while')
+                            {
+                                'while('
+                                $s.Condition
+                                ')'
+                            }
+                            elseif ($loopType -eq 'dowhile')
+                            {
+                                'do'
+                            }
+
                             '{'
-                            @($cc.Body.statements | Compress-Statement) -join ';'
+                            @($s.Body.Statements | Compress-Statement) -join ';'
                             '}'
-                        }
-                        if ($s.Finally)
-                        {
-                            # then the finally (if it exists)
-                            'finally{'
-                            $($s.Finally.statements | Compress-Statement) -join ';'
-                            '}'
-                        }
-                    ) -join ''
-                }
-                elseif ($s -is $CommandExpression)
-                {
-                    # If it's a command expression
-                    if ($s.Expression)
-                    {
-                        $s.Expression | Compress-Expression # minify the expression
+                            if ($loopType -eq 'dowhile')
+                            {
+                                'while('
+                                $s.Condition
+                                ')'
+                            }
+                        ) -join ''
                     }
-                    else
+                    {$_ -is $Pipeline}
+                    {
+                        # If it's a pipeline
+                        # PipelineElements is ReadOnlyCollection<CommandBaseAst>
+                        Compress-Pipeline $s # minify the pipeline and join by |
+                    }
+                    {$_ -is $TryStatement}
+                    {
+                        # If it's a type/catch
+                        @(
+                            'try{'
+                            @($s.Body.statements | Compress-Statement) -join ';' # minify the try
+                            '}'
+                            foreach ($cc in $s.CatchClauses)
+                            {
+                                # then each of the catches
+                                'catch'
+                                if ($cc.CatchTypes)
+                                {
+                                    foreach ($ct in $cc.CatchTypes)
+                                    {
+                                        ' ['
+                                        $ct.TypeName.FullName
+                                        ']'
+                                    }
+                                }
+                                '{'
+                                @($cc.Body.statements | Compress-Statement) -join ';'
+                                '}'
+                            }
+                            if ($s.Finally)
+                            {
+                                # then the finally (if it exists)
+                                'finally{'
+                                $($s.Finally.statements | Compress-Statement) -join ';'
+                                '}'
+                            }
+                        ) -join ''
+                    }
+                    {$_ -is $CommandExpression}
+                    {
+                        # If it's a command expression
+                        if ($s.Expression)
+                        {
+                            $s.Expression | Compress-Expression # minify the expression
+                        }
+                        else
+                        {
+                            $s.ToString()
+                        }
+                    }
+                    {$_ -is $FunctionDefinition}
+                    {
+                        # If it's a function
+                        $(if ($s.IsWorklow) { "workflow " }
+                            elseif ($s.IsFilter) { "filter " }
+                            else { "function " }) + $s.Name + "{$(Compress-ScriptBlockAst $s.Body)}" # redeclare it with a minified body.
+                    }
+                    default
                     {
                         $s.ToString()
                     }
-                }
-                elseif ($s -is $FunctionDefinition)
-                {
-                    # If it's a function
-                    $(if ($s.IsWorklow) { "workflow " }
-                        elseif ($s.IsFilter) { "filter " }
-                        else { "function " }) + $s.Name + "{$(Compress-ScriptBlockAst $s.Body)}" # redeclare it with a minified body.
-                }
-                else
-                {
-                    $s.ToString()
                 }
             }
         }
         Function Compress-Command
         {
-            param($p)
-            if ($p.InvocationOperator -eq 'Ampersand')
+            param(
+                [Parameter(ValueFromPipeline=$true, Position=0)]
+                [Management.Automation.Language.CommandBaseAst]$p)
+            process
             {
-                '&'
-            }
-            elseif ($p.InvocationOperator -eq 'Dot')
-            {
-                '.'
-            }
-            foreach ($e in $p.CommandElements)
-            {
-                if ($e -is $Expression)
+                if ($p -is $CommandExpression)
                 {
-                    Compress-Expression $e
-                    #"{$(Compress-ScriptBlockAst $e.ScriptBlock)}" # and compress any nested script blocks
-                } 
+                    Compress-Expression $p.Expression # compress each expression
+                }
+                elseif($p -is $Command)
+                {
+                    if ($p.InvocationOperator -eq 'Ampersand')
+                    {
+                        '&'
+                    }
+                    elseif ($p.InvocationOperator -eq 'Dot')
+                    {
+                        '.'
+                    }
+                    @(foreach ($e in $p.CommandElements)
+                        {
+                            if ($e -is $Expression)
+                            {
+                                Compress-Expression $e
+                                #"{$(Compress-ScriptBlockAst $e.ScriptBlock)}" # and compress any nested script blocks
+                            } 
+                            else
+                            { 
+                                # Should be CommandParameterAst                 
+                                $e.Extent.Text
+                            }
+                        }) -Join ' '
+                }
                 else
-                { 
-                    # Should be CommandParameterAst                 
-                    $e.Extent.Text
+                {
+                    throw "$($p.GetType().Name) not expected!"
                 }
             }
         }
@@ -388,18 +414,20 @@ function Compress-ScriptBlock
             # If we're compressing a pipeline
             param(
                 [Parameter(ValueFromPipeline=$true)]
-                [Management.Automation.Language.CommandBaseAst]$p)
-
+                [Management.Automation.Language.PipelineBaseAst]$p)
+            <# PipelineBaseAst
+                AssignmentStatementAst
+                ChainableAst
+                  PipelineAst
+                  PIpelineChainAst
+                ErrorStatementAst
+            #>
             process
-            {
-                if ($p -is $CommandExpression)
+            {   
+                if($p -is $Pipeline)
                 {
-                    Compress-Expression $p.Expression # compress each expression
-                }
-                elseif ($p -is $Command)
-                {
-                    @(Compress-Command $p) -join ' '
-                }
+                    @($p.PipelineElements | Compress-Command) -Join '|'
+                }               
                 elseif ($p)
                 {
                     $p.ToString()
@@ -446,20 +474,61 @@ function Compress-ScriptBlock
                     }
                     elseif($e -is $MemberExpression)
                     {
-                        $CompressedMemberExpression = Compress-Expression $e.Expression
-                        "$($CompressedMemberExpression).$($e.Member)"
+                        if($e -is $InvokeMemberExpression)
+                        {
+                            $Separator = "."
+                            if($e.Static)
+                            {
+                                $Separator = "::"
+                            }
+                            
+                            "$($e.Expression)$($Separator)$($e.Member)(" + `
+                                "$(($e.Arguments | %{ 
+                                    if($_ -isnot $MemberExpression)
+                                    {
+                                        Compress-Expression $_ 
+                                    }
+                                    else
+                                    {
+                                        $_
+                                    }
+                                }) -Join ','))"
+                        }
+                        else
+                        {
+                            $CompressedMemberExpression = $e.Expression
+                            if($e.Expression -isnot $MemberExpression)
+                            {
+                                $CompressedMemberExpression = Compress-Expression $e.Expression
+                            }
+                            "$($CompressedMemberExpression).$($e.Member)"
+                        }
                     }
                     elseif($e -is $ExpandableStringExpression)
                     {
-                        foreach($ne in $e.NestedExpressions)
+                        if($e.Value)
                         {
-                            "`"$($e.Value.Replace($ne.Extent.Text, (Compress-Expression $ne)))`""
+                            $StringBuilder = New-Object System.Text.StringBuilder $e.Extent.Text
+                            foreach($ne in ($e.NestedExpressions | sort @{E ={$_.Extent.EndOffset}} -Desc))
+                            {
+                                $CompressedNestedExpression = Compress-Expression $ne
+                                if($CompressedNestedExpression -ne $ne.Extent.Text)
+                                {
+                                    Write-Verbose "Replacing $($ne.Extent.Text) with $CompressedNestedExpression"
+                                    $RelativeStartIndex = $ne.Extent.StartScriptPosition.Offset - $ne.Parent.Extent.StartScriptPosition.Offset                                
+                                    $RelativeStartIndex--
+                                    $CharactersToRemove = $ne.Extent.Text.Length                                        
+                                    $StringBuilder.Remove($RelativeStartIndex, $CharactersToRemove) | Out-Null
+                                    $StringBuilder.Insert($RelativeStartIndex, $CompressedNestedExpression) | Out-Null
+                                }
+                            }
+                            Write-Verbose "Outputting $($StringBuilder.ToString())"
+                            $StringBuilder.ToString()
                         }
-                    }
-                    elseif($e -is $InvokeMemberExpression)
-                    {
-                        "$($e.Expression).$($e.Member)(" + `
-                            "$(($e.Arguments | %{ Compress-Expression $_ }) -Join ','))"
+                        else
+                        {
+                            '""'
+                        }
                     }
                     elseif($e -is $IndexExpression)
                     {
@@ -467,6 +536,7 @@ function Compress-ScriptBlock
                     }
                     elseif($e -is $VariableExpression)
                     {
+                        Write-Verbose "Line $($e.Extent.StartLineNumber) Variable: $($e.Extent.Text)"
                         $CompressedVariableName = $global:CompressedVariables."$($e)"
                         if(!$CompressedVariableName)
                         {
@@ -487,19 +557,19 @@ function Compress-ScriptBlock
                     {
                         # If it was a paren expresssion, arrayexpression, or subexpression
                         '('
-                        Compress-Part $e # we have to minify each part of the expression.
+                        Compress-Pipeline $e.Pipeline # we have to minify each part of the expression.
                         ')'
                     }
                     elseif ($e -is $ArrayExpression)
                     {
                         '@('
-                        Compress-Part $e
+                        @($e.Subexpression.Statements | Compress-Statement) -join ';'                        
                         ')'
                     }
                     elseif ($e -is $SubExpression)
                     {
                         '$('
-                        Compress-Part $e
+                        @($e.Subexpression.Statements | Compress-Statement) -join ';'   
                         ')'
                     }
                     elseif ($e -is $convertExpression)
@@ -512,9 +582,9 @@ function Compress-ScriptBlock
                         '@{' +
                         (@(foreach ($kvp in $e.KeyValuePairs)
                                 {
-                                    @(Compress-Part $kvp.Item1
+                                    @(Compress-Expression $kvp.Item1
                                         '='
-                                        Compress-Part $kvp.Item2
+                                        Compress-Statement $kvp.Item2
                                     ) -join ''
                                 })  -join ';')+ '}'
                     }
@@ -530,8 +600,12 @@ function Compress-ScriptBlock
                             {
                                 try
                                 {
+                                    if(!$global:AllCommands)
+                                    {
+                                        $global:AllCommands = Get-Command -ListAvailable
+                                    }
                                     # If this is the full command name, this will get aliases
-                                    $ResolvedCommand = Get-Command $e.Value -ErrorAction SilentlyContinue
+                                    $ResolvedCommand = $global:AllCommands | ?{$_.Name -eq $e.Value -or $_.Definition -eq $e.Value}
                                     if($ResolvedCommand)
                                     {
                                         if($ResolvedCommand.CommandType -eq 'Alias')
@@ -539,10 +613,14 @@ function Compress-ScriptBlock
                                             $ResolvedCommand = Get-Command $ResolvedCommand.ResolvedCommandName
                                         }
                                         $ShortestAlias = $e.Value
-                                        $Aliases = Get-Alias -Definition $ResolvedCommand.Name -ErrorAction SilentlyContinue
+                                        if(!$global:AllAliases)
+                                        {
+                                            $global:AllAliases = Get-Alias
+                                        }
+                                        $Aliases = $AllAliases | ?{$_.Definition -eq $ResolvedCommand.Name}
                                         if($Aliases)
                                         {
-                                            $ShortestAlias = $Aliases | select -Expand Name | sort @{E ={$_.Length}} | select -First 1                                        
+                                            $ShortestAlias = $Aliases | Select-Object -Expand Name | Sort-Object @{E ={$_.Length}} | Select-Object -First 1                                        
                                         }
                                         $ShortestAlias
                                     }
@@ -553,9 +631,9 @@ function Compress-ScriptBlock
                                 }
                                 catch
                                 {
-                                    Write-Warning "Unable to resolve $($e.GetType().name) $e"
-                                    throw $_
-                                }
+                                    # Write-Warning "Unable to resolve $($e.GetType().name) $e"
+                                    # throw $_
+                                }                                
                             }
                         }
                         else
@@ -563,11 +641,11 @@ function Compress-ScriptBlock
                             $e.Value
                         }
                     }
-                    elseif ($e.Elements)
+                    elseif ($e -is $ArrayLiteral)
                     {
                         @(foreach ($_ in $e.Elements)
                             {
-                                Compress-Part $_
+                                Compress-Expression $_
                             }) -join ','
                     }
                     else
@@ -577,33 +655,9 @@ function Compress-ScriptBlock
                 }
 
                 $ExpandedExpressions = Expand-Expression $e
-                $ExpandedExpressions -join ''
-
-            }
-        }
-
-
-        Function Compress-Part
-        {
-            # If we're minifying pars of an expression
-            param([Parameter(ValueFromPipeline=$true, Position=0)]$p)
-            process
-            {
-                if ($p.SubExpression) { @($p.Subexpression.Statements | Compress-Statement) -join ';' } # join minified subexpression statements by ;,
-                elseif ($p.Pipeline) { @($p.Pipeline.PipelineElements | Compress-Pipeline) -join '|' } # pipeline elements by |,
-                elseif ($p -is $FunctionDefinition)
-                {
-                    # redeclare any functions, minified
-                    $(if ($p.IsWorklow) { "workflow " }
-                        elseif ($p.IsFilter) { "filter " }
-                        else { "function " }) + $p.Name + "{$(Compress-ScriptBlockAst $p.Body)}"
-                }
-                elseif ($p.ScriptBlock) { "{$(Compress-ScriptBlockAst $p.ScriptBlock)}" } # minify any script blocks
-                elseif ($p -is $Pipeline)
-                {
-                    @($p.PipelineElements | Compress-Pipeline) -join '|'
-                }
-                else { $p } # any emit anything we don't know about.
+                $MinifiedExpression = $ExpandedExpressions -join ' '
+                Write-Verbose "Line $($e.Extent.StartLineNumber)`tExpression`t: $($e.Extent.Text) -> $MinifiedExpression"
+                $MinifiedExpression
             }
         }
     }
