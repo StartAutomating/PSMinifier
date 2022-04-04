@@ -515,8 +515,7 @@ function Compress-ScriptBlock
                                 if($CompressedNestedExpression -ne $ne.Extent.Text)
                                 {
                                     Write-Verbose "Replacing $($ne.Extent.Text) with $CompressedNestedExpression"
-                                    $RelativeStartIndex = $ne.Extent.StartScriptPosition.Offset - $ne.Parent.Extent.StartScriptPosition.Offset                                
-                                    $RelativeStartIndex--
+                                    $RelativeStartIndex = $ne.Extent.StartScriptPosition.Offset - $ne.Parent.Extent.StartScriptPosition.Offset                                                                    
                                     $CharactersToRemove = $ne.Extent.Text.Length                                        
                                     $StringBuilder.Remove($RelativeStartIndex, $CharactersToRemove) | Out-Null
                                     $StringBuilder.Insert($RelativeStartIndex, $CompressedNestedExpression) | Out-Null
