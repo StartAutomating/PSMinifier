@@ -1,39 +1,137 @@
 ﻿#requires -Module Pester
-describe 'PSMinifier' {
-    it 'Makes scripts smaller' {
-        $compressScriptBlock = Get-Command Compress-ScriptBlock
-        $compressed = $compressScriptBlock |
-            Compress-ScriptBlock -Anonymous
-        if ($compressed.Length -gt $compressScriptBlock.ScriptBlock.ToString().Length) {
-            throw "Minified length $($compressed.Length) exceeds input length $($compressScriptBlock.ScriptBlock.ToString().Length)"
-        }
+. .\Compress-ScriptBlock.ps1
+
+Function Test-Syntax
+{
+    param([string]$ScriptString)
+    $ex = $null
+    try
+    {
+        [ScriptBlock]::Create($ScriptString) 
+    }
+    catch
+    {
+        $ex = $_
+    }
+    $null -eq $ex
+}
+Describe 'PSMinifier' {
+    It 'MemberExpression' {
+        Compress-ScriptBlock { 
+            $WebClient.UseDefaultCredentials=$true;
+        } | Should -Be '$WebClient.UseDefaultCredentials=$true' -Verbose
+    }
+    It 'Static Member Assignment' {
+        Compress-ScriptBlock {
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
+        } | Should -Be '[System.Net.ServicePointManager]::SecurityProtocol=[System.Net.ServicePointManager]::SecurityProtocol -bor 3072'
+    }
+    It 'Member Invocation'{
+        Compress-ScriptBlock {
+            $shell=0
+            $shell.namespace($var).CopyHere()
+        } | Should -Be '$a=0;$a.namespace($var).CopyHere()'
+    }
+    It 'Static Method Invocation' {
+        Compress-ScriptBlock { 
+            $var = ""
+            [System.Environment]::ExpandEnvironmentVariables($var)
+        } | Should -Be '$a="";[System.Environment]::ExpandEnvironmentVariables($a)'
+    }
+    It 'UnaryExpression' {
+        Compress-ScriptBlock { 
+            $i = 0
+            $i++
+        } | Should -Be '$i=0;$i++'
+    }
+    
+    It 'IndexExpression' {
+        Compress-ScriptBlock { 
+            $i = 0
+            $Url = $Arguments[$i++]
+        } | Should -Be '$i=0;$a=$Arguments[$i++]'
+    }
+    It 'Static Member' {
+        Compress-ScriptBlock { [DateTime]::UtcNow } | Should -Be '[DateTime]::UtcNow'
+    }
+    
+    It 'Makes scripts smaller and without syntax errors' {
+        #$VerbosePreference = 'Continue'
+        # $compressScriptBlock = Get-Command Compress-ScriptBlock | select -Expand Definition
+        # $compressed = Compress-ScriptBlock -ScriptBlock ([ScriptBlock]::Create($compressScriptBlock))
+        # $compressed.Length | Should -BeLessThan $compressScriptBlock.Length
+        # Write-Host "Reduced $($compressScriptBlock.Length) to $($compressed.Length)"
+        # Write-Host "Compression Ratio: $(((1-($compressed.Length / $compressScriptBlock.Length)) * 100).ToString('0'))%"
+        # Test-Syntax $CompressedScriptBlock | Should -BeTrue
+        #$VerbosePreference = 'SilentlyContinue'
+    }
+    It 'Minify Initialized Variables' {
+        Compress-ScriptBlock { $InitializedVariable = 0 } | Should -Be '$a=0'
+    }
+    It 'Leave Uninitialized Variables' {
+        Compress-ScriptBlock { $MyVar } | Should -Be '$MyVar'
+    }
+    It 'Shorten Variables in ExpandableStrings' {
+        $Compressed = Compress-ScriptBlock -ScriptBlock {
+            $InitializedVariable = "$UninitializedVariable some text"
+        } 
+        $Compressed.ToString() | Should -Be '$a="$UninitializedVariable some text"'
+    }
+    It 'Variable z should rollover' {
+        Compress-ScriptBlock -FirstVariableName 'z' { 
+            $MyVar = 0
+            $YourVar = 0
+        } | Should -Be '$z=0;$aa=0'
+    }
+    It 'Use Shortest Alias' {
+        
+        Compress-ScriptBlock -ScriptBlock {
+            Write-Output "Hello"
+        } | Should -Be "echo `"Hello`""
     }
 
-    it 'Can -GZip them to make them even smaller' {
+    It 'Script Should have Valid Syntax' {
+        
+        $CompressedScriptBlock = Compress-ScriptBlock -ScriptBlock {
+            Write-Output "Hello"
+        } 
+        
+        Test-Syntax $CompressedScriptBlock | Should -BeTrue
+    }
+    
+
+    It 'Can -GZip them to make them even smaller' {
         $compressScriptBlock = Get-Command Compress-ScriptBlock
         $compressed = $compressScriptBlock |
             Compress-ScriptBlock -Anonymous
         $gzipped = $compressScriptBlock |
             Compress-ScriptBlock -GZip -Anonymous
-        if ($gzipped.Length -gt $compressScriptBlock.ScriptBlock.ToString().Length) {
+        if ($gzipped.Length -gt $compressScriptBlock.ScriptBlock.ToString().Length)
+        {
             throw "GZipped length $($gzipped.Length) exceeds input length $($compressScriptBlock.ScriptBlock.ToString().Length)"
         }
 
-        if ($gzipped.Length -gt $compressed.Length) {
+        if ($gzipped.Length -gt $compressed.Length)
+        {
             throw "GZipped length $($gzipped.Length) exceeds minified length $($compressed.Length)"
         }
     }
 
-    it 'Can shrink try catch blocks' {
+    It 'Can shrink try catch blocks' {
 
         $originalScript = {
-            try {
+            try
+            {
                 thisMightThrowBecauseThereIsNoCommand | # this commend should go away.
-                    thispipeline also uses     a lot of whitespace
-            } catch [System.SystemException] {
+                    thispipeline also uses a lot of whitespace
+            }
+            catch [System.SystemException]
+            {
                 "Oh No! An Exception Occured" |
                     Out-String
-            } finally {
+            }
+            finally
+            {
                 "FinallyGotSomethingDone" | Out-String
             }
         }
@@ -44,7 +142,7 @@ describe 'PSMinifier' {
             Should -BeLike "*Oh*No!*An*Exception*Occured*FinallyGotSomethingDone*"
     }
 
-    it 'Can compress a [hashtable]' {
+    It 'Can compress a [hashtable]' {
         Compress-ScriptBlock -ScriptBlock {
             @{
                 a = "b"
@@ -56,7 +154,7 @@ describe 'PSMinifier' {
         } | Should -Not -Match "\n"
     }
 
-    it 'Can compress an ordered [hashtable]' {
+    It 'Can compress an ordered [hashtable]' {
         Compress-ScriptBlock -ScriptBlock {
             [Ordered]@{
                 a = "b"
@@ -68,7 +166,7 @@ describe 'PSMinifier' {
         } | Should -Not -Match "\n"
     }
 
-    it 'Can compress a using statement' {
+    It 'Can compress a using statement' {
         $compressed = Compress-ScriptBlock -ScriptBlock ([ScriptBlock]::Create(@"
 using namespace System.Security.Cryptography
 using namespace System.Windows.Forms
