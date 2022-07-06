@@ -45,7 +45,7 @@ function Compress-ScriptBlock
     [OutputType([string])]
     param(
     # The ScriptBlock that will be compressed.
-    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName)]
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName,ValueFromPipeline)]
     [ScriptBlock]
     $ScriptBlock,
 
@@ -457,8 +457,13 @@ $([Convert]::ToBase64String($ms.ToArray(), 'InsertLineBreaks'))
             if ($PassThru -and [IO.File]::Exists("$unresolvedOutputPath")) {
                 [IO.FileInfo]"$unresolvedOutputPath"
             }
+        } elseif ($(
+            $minifiedScriptBlock = [ScriptBlock]::Create($minified) 
+            $minifiedScriptBlock
+        )) {            
+            $minifiedScriptBlock # Otherwise, output the minified content.
         } else {
-            $minified # Otherwise, output the minified content.
+            $minified
         }
     }
 }
