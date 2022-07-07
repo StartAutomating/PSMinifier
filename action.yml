@@ -1,4 +1,4 @@
-﻿
+
 name: PSMinifier
 description: A Miniature Minifier For PowerShell
 inputs: 
@@ -49,13 +49,13 @@ runs:
       id: PSMinifier
       shell: pwsh
       env: 
-        UserName: ${{inputs.UserName}}
+        CommitMessage: ${{inputs.CommitMessage}}
         NoBlock: ${{inputs.NoBlock}}
         UserEmail: ${{inputs.UserEmail}}
-        CommitMessage: ${{inputs.CommitMessage}}
-        Exclude: ${{inputs.Exclude}}
         GZip: ${{inputs.GZip}}
+        Exclude: ${{inputs.Exclude}}
         Include: ${{inputs.Include}}
+        UserName: ${{inputs.UserName}}
       run: |
         $Parameters = @{}
         $Parameters.Include = ${env:Include}
@@ -117,7 +117,19 @@ runs:
         [PSCustomObject]$PSBoundParameters | Format-List | Out-Host
         "::endgroup::" | Out-Host
         
-        if ($env:GITHUB_ACTION_PATH) {
+        @"
+        ::group::GitHubEvent
+        $($gitHubEvent | ConvertTo-Json -Depth 100)
+        ::endgroup::
+        "@ | Out-Host
+        
+        $PSD1Found = Get-ChildItem -Recurse -Filter "*.psd1" | Where-Object Name -eq 'PSMinifier.psd1' | Select-Object -First 1
+        
+        if ($PSD1Found) {
+            $psMinifierPath = $PSD1Found
+            Import-Module $PSD1Found -Force -PassThru | Out-Host
+        }
+        elseif ($env:GITHUB_ACTION_PATH) {
             $psMinifierPath = Join-Path $env:GITHUB_ACTION_PATH 'PSMinifier.psd1'
             if (Test-path $psMinifierPath) {
                 Import-Module $psMinifierPath -Force -PassThru | Out-String
@@ -132,6 +144,10 @@ runs:
         "::debug::PSMinifier Loaded from Path - $($psMinifierPath)" | Out-Host
         
         if (-not $env:GITHUB_WORKSPACE) { throw "No GitHub workspace" }
+        if (-not $CommitMessage -and $gitHubEvent.head_commit.message) {
+            $CommitMessage = $gitHubEvent.head_commit.message
+        }
+        
         $compressSplat = @{} + $PSBoundParameters
         $compressSplat.Remove('Include')
         $compressSplat.Remove('Exclude')
@@ -214,7 +230,6 @@ runs:
                     $gitStatusOutput = git status $_.Fullname -s
                     if ($gitStatusOutput) {
                         git add $_.Fullname
-                        git commit -m $ExecutionContext.SessionState.InvokeCommand.ExpandString($CommitMessage)
                         $filesUpdated++
                     } else {
                         "No need to Commit $($_.FullName)" | Out-Host
@@ -230,7 +245,5 @@ runs:
             } else {
                 "Nothing to Push" | Out-Host
             }
-        }
-        
-        } @Parameters
+        }} @Parameters
 
