@@ -46,7 +46,7 @@ function Compress-ScriptBlock
     [Alias('PSMinify')]
     param(
     # The ScriptBlock that will be compressed.
-    [Parameter(Mandatory,ValueFromPipelineByPropertyName)]
+    [Parameter(Mandatory,ValueFromPipelineByPropertyName,ValueFromPipeline)]
     [ScriptBlock]
     $ScriptBlock,
 
