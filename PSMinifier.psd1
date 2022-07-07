@@ -8,7 +8,7 @@
     Copyright = '2020 Start-Automating'
     PrivateData = @{
         PSData = @{
-            Tags = 'Minifier'
+            Tags = 'Minifier', 'PipeScript'
             ProjectURI = 'https://github.com/StartAutomating/PSMinifier'
             LicenseURI = 'https://github.com/StartAutomating/PSMinifier/blob/master/LICENSE'
             ReleaseNotes = @'
