@@ -78,6 +78,6 @@ echo 2
         $compressed | Should -Match "using"
         $compressed | Should -Not -Match "\n"
 
-        Invoke-Expression $compressed | Select-Object -First 1 | Should -Be 1
+        Invoke-Expression "$compressed" | Select-Object -First 1 | Should -Be 1
     }
 }
