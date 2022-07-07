@@ -1,5 +1,5 @@
 ﻿@{
-    ModuleVersion = '1.1.3'
+    ModuleVersion = '1.1.4'
     PowerShellVersion = '3.0'
     RootModule = 'PSMinifier.psm1'
     Description = 'A Miniature Minifier For PowerShell'
@@ -12,6 +12,11 @@
             ProjectURI = 'https://github.com/StartAutomating/PSMinifier'
             LicenseURI = 'https://github.com/StartAutomating/PSMinifier/blob/master/LICENSE'
             ReleaseNotes = @'
+### v1.1.4
+* Compress-ScriptBlock:  Aliasing PSMinify (#13)
+* Adding support for Minify transpiler in PipeScript (#11)
+* Compress-ScriptBlock:  Returning [ScriptBlock] if possible (#12)
+---
 ### v1.1.3
 ---
 Compress-ScriptBlock bugfix: now handling using statements (Issue #6).  Improvements to try/catch (Issue #7)
