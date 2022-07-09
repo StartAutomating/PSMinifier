@@ -40,7 +40,19 @@ $UserName
 [PSCustomObject]$PSBoundParameters | Format-List | Out-Host
 "::endgroup::" | Out-Host
 
-if ($env:GITHUB_ACTION_PATH) {
+@"
+::group::GitHubEvent
+$($gitHubEvent | ConvertTo-Json -Depth 100)
+::endgroup::
+"@ | Out-Host
+
+$PSD1Found = Get-ChildItem -Recurse -Filter "*.psd1" | Where-Object Name -eq 'PSMinifier.psd1' | Select-Object -First 1
+
+if ($PSD1Found) {
+    $psMinifierPath = $PSD1Found
+    Import-Module $PSD1Found -Force -PassThru | Out-Host
+}
+elseif ($env:GITHUB_ACTION_PATH) {
     $psMinifierPath = Join-Path $env:GITHUB_ACTION_PATH 'PSMinifier.psd1'
     if (Test-path $psMinifierPath) {
         Import-Module $psMinifierPath -Force -PassThru | Out-String
@@ -55,6 +67,10 @@ if ($env:GITHUB_ACTION_PATH) {
 "::debug::PSMinifier Loaded from Path - $($psMinifierPath)" | Out-Host
 
 if (-not $env:GITHUB_WORKSPACE) { throw "No GitHub workspace" }
+if (-not $CommitMessage -and $gitHubEvent.head_commit.message) {
+    $CommitMessage = $gitHubEvent.head_commit.message
+}
+
 $compressSplat = @{} + $PSBoundParameters
 $compressSplat.Remove('Include')
 $compressSplat.Remove('Exclude')
